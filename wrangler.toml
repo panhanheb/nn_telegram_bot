@@ -24,7 +24,7 @@ compatibility_flags = ["nodejs_compat"]
 # ---------------------------------------------------------------------------
 [[kv_namespaces]]
 binding = "DATA"
-id = "e5b521dd8278431498a55a72b0c630a9"
+id = "62e1f389eb95ef1bfb83c245a0c820e8"
 
 # Runs the "broadcast" Nitro task every minute (replaces node-cron).
 [triggers]
