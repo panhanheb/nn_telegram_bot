@@ -1,0 +1,505 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   TELEFLOW PRO DESIGN SYSTEM
+   Telegram Web + Linear + Vercel inspired aesthetic
+   TELEFLOW PRO — LIQUID GLASS DESIGN SYSTEM
+   Translucent acrylic materials, specular highlights,
+   fluid depth, and Apple/Telegram-inspired crystalline aesthetics.
+   ============================================================ */
+
+:root {
+  --tf-bg: #090d16;
+  --tf-card: #111827;
+  --tf-card-elevated: #162032;
+  --tf-surface-subtle: #0f172a;
+  --tf-border: rgba(255, 255, 255, 0.08);
+  --tf-border-subtle: rgba(255, 255, 255, 0.04);
+  --tf-border-hover: rgba(255, 255, 255, 0.16);
+  --tf-bg: #060913;
+  --tf-card: rgba(15, 23, 42, 0.62);
+  --tf-card-elevated: rgba(20, 30, 55, 0.82);
+  --tf-surface-subtle: rgba(15, 23, 42, 0.45);
+  --tf-border: rgba(255, 255, 255, 0.12);
+  --tf-border-subtle: rgba(255, 255, 255, 0.06);
+  --tf-border-hover: rgba(255, 255, 255, 0.25);
+  --tf-shine: rgba(255, 255, 255, 0.18);
+  --tf-primary: #2481cc;
+  --tf-primary-hover: #1d73b8;
+  --tf-primary-glow: rgba(36, 129, 204, 0.25);
+  --tf-primary-glow: rgba(36, 129, 204, 0.35);
+  --tf-text: #f8fafc;
+  --tf-text-muted: #94a3b8;
+  --tf-text-subtle: #64748b;
+}
+
+body {
+  background-color: var(--tf-bg);
+  color: var(--tf-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ============================================================
+   LIGHT THEME (Clean, crystalline, Apple/Linear style)
+   LIGHT THEME (Crystalline Frosted Ice Aesthetic)
+   ============================================================ */
+html.theme-light {
+  --tf-bg: #f8fafc;
+  --tf-card: #ffffff;
+  --tf-card-elevated: #ffffff;
+  --tf-surface-subtle: #f1f5f9;
+  --tf-border: #e2e8f0;
+  --tf-border-subtle: #f1f5f9;
+  --tf-border-hover: #cbd5e1;
+  --tf-bg: #f1f5fb;
+  --tf-card: rgba(255, 255, 255, 0.78);
+  --tf-card-elevated: rgba(255, 255, 255, 0.92);
+  --tf-surface-subtle: rgba(241, 245, 249, 0.75);
+  --tf-border: rgba(255, 255, 255, 0.85);
+  --tf-border-subtle: rgba(226, 232, 240, 0.9);
+  --tf-border-hover: rgba(36, 129, 204, 0.4);
+  --tf-shine: rgba(255, 255, 255, 0.95);
+  --tf-primary: #2481cc;
+  --tf-primary-hover: #1d73b8;
+  --tf-primary-glow: rgba(36, 129, 204, 0.18);
+  --tf-primary-glow: rgba(36, 129, 204, 0.2);
+  --tf-text: #0f172a;
+  --tf-text-muted: #475569;
+  --tf-text-subtle: #94a3b8;
+}
+
+html.theme-light body {
+  background-color: var(--tf-bg);
+  color: var(--tf-text);
+}
+
+/* Light theme overrides for Tailwind slate background classes */
+html.theme-light .bg-slate-950 { background-color: #f8fafc !important; }
+html.theme-light .bg-slate-950\/80 { background-color: rgba(248, 250, 252, 0.92) !important; }
+html.theme-light .bg-slate-950\/60 { background-color: rgba(248, 250, 252, 0.85) !important; }
+html.theme-light .bg-slate-950 { background-color: #f1f5fb !important; }
+html.theme-light .bg-slate-950\/80 { background-color: rgba(241, 245, 251, 0.92) !important; }
+html.theme-light .bg-slate-950\/60 { background-color: rgba(241, 245, 251, 0.85) !important; }
+html.theme-light .bg-slate-900 { background-color: #ffffff !important; }
+html.theme-light .bg-slate-900\/90 { background-color: rgba(255, 255, 255, 0.96) !important; }
+html.theme-light .bg-slate-900\/80 { background-color: rgba(255, 255, 255, 0.92) !important; }
+html.theme-light .bg-slate-900\/60 { background-color: rgba(255, 255, 255, 0.85) !important; }
+html.theme-light .bg-slate-900\/40 { background-color: #f1f5f9 !important; }
+html.theme-light .bg-slate-900\/40 { background-color: rgba(241, 245, 249, 0.75) !important; }
+html.theme-light .bg-slate-850 { background-color: #e2e8f0 !important; }
+html.theme-light .bg-slate-800 { background-color: #f1f5f9 !important; }
+html.theme-light .bg-slate-800\/60 { background-color: rgba(241, 245, 249, 0.7) !important; }
+html.theme-light .bg-slate-800\/40 { background-color: rgba(241, 245, 249, 0.5) !important; }
+
+/* Light theme text */
+html.theme-light .text-white { color: #0f172a !important; }
+html.theme-light .text-slate-100 { color: #1e293b !important; }
+html.theme-light .text-slate-200 { color: #334155 !important; }
+html.theme-light .text-slate-300 { color: #475569 !important; }
+html.theme-light .text-slate-400 { color: #64748b !important; }
+
+/* Light theme borders */
+html.theme-light .border-slate-800,
+html.theme-light .border-slate-850,
+html.theme-light .border-slate-900,
+html.theme-light .border-white\/10,
+html.theme-light .border-white\/5 {
+  border-color: #e2e8f0 !important;
+  border-color: rgba(226, 232, 240, 0.9) !important;
+}
+
+/* ============================================================
+   LIQUID GLASS CORE UTILITIES & SURFACES
+   ============================================================ */
+
+/* Primary Liquid Glass Card */
+.tf-card,
+.liquid-glass {
+  background-color: var(--tf-card);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid var(--tf-border);
+  border-radius: 1rem; /* 16px */
+  box-shadow:
+    inset 0 1px 1px 0 var(--tf-shine),
+    0 8px 32px 0 rgba(0, 0, 0, 0.35);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.theme-light .tf-card,
+html.theme-light .liquid-glass {
+  background-color: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1),
+    0 12px 32px -8px rgba(148, 163, 184, 0.25);
+}
+
+/* Interactive Card with Specular Sheen on Hover */
+.tf-card-interactive,
+.liquid-glass-interactive {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tf-card-interactive:hover,
+.liquid-glass-interactive:hover {
+  border-color: var(--tf-border-hover);
+  box-shadow:
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.28),
+    0 14px 38px -6px rgba(0, 0, 0, 0.45);
+  transform: translateY(-2px);
+}
+
+html.theme-light .tf-card-interactive:hover,
+html.theme-light .liquid-glass-interactive:hover {
+  border-color: rgba(36, 129, 204, 0.4);
+  box-shadow:
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1),
+    0 16px 36px -6px rgba(100, 116, 139, 0.25);
+}
+
+/* Elevated Liquid Glass Surface (Modals, Drawers, Dropdowns) */
+.tf-card-elevated,
+.liquid-glass-elevated {
+  background-color: var(--tf-card-elevated);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1rem;
+  box-shadow:
+    inset 0 1.5px 2px 0 var(--tf-shine),
+    0 20px 50px -10px rgba(0, 0, 0, 0.55);
+}
+
+html.theme-light .tf-card-elevated,
+html.theme-light .liquid-glass-elevated {
+  background-color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 1px 2px 0 rgba(255, 255, 255, 1),
+    0 20px 48px -10px rgba(100, 116, 139, 0.22);
+}
+
+/* Subtle Glass Surface */
+.tf-card-subtle,
+.liquid-glass-subtle {
+  background-color: var(--tf-surface-subtle);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tf-border-subtle);
+  border-radius: 0.75rem;
+  box-shadow: inset 0 1px 0 0 var(--tf-shine);
+}
+
+html.theme-light .tf-card-subtle,
+html.theme-light .liquid-glass-subtle {
+  background-color: rgba(241, 245, 249, 0.75);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+/* ============================================================
+   LIQUID GLASS FORM CONTROLS & BUTTONS
+   ============================================================ */
+
+/* Translucent Frosted Input */
+.tf-input,
+.liquid-glass-input {
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tf-border);
+  border-radius: 0.625rem;
+  color: var(--tf-text);
+  font-size: 0.875rem;
+  box-shadow: inset 0 1.5px 3px 0 rgba(0, 0, 0, 0.25);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+html.theme-light .tf-input,
+html.theme-light .liquid-glass-input {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(203, 213, 225, 0.8);
+  box-shadow: inset 0 1px 2px 0 rgba(148, 163, 184, 0.12);
+  color: #0f172a;
+}
+
+.tf-input:focus,
+.liquid-glass-input:focus {
+  outline: none;
+  border-color: rgba(36, 129, 204, 0.8);
+  box-shadow:
+    0 0 0 3px var(--tf-primary-glow),
+    inset 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+html.theme-light .tf-input:focus,
+html.theme-light .liquid-glass-input:focus {
+  box-shadow:
+    0 0 0 3px rgba(36, 129, 204, 0.25),
+    inset 0 1px 2px 0 rgba(148, 163, 184, 0.1);
+}
+
+/* Radiant Liquid Glass Primary Button */
+.tf-btn-primary,
+.liquid-glass-button {
+  background-image: linear-gradient(135deg, rgba(36, 129, 204, 0.95), rgba(26, 110, 180, 0.95));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-weight: 500;
+  border-radius: 0.625rem;
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.45),
+    0 8px 24px -4px rgba(36, 129, 204, 0.45);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tf-btn-primary:hover:not(:disabled),
+.liquid-glass-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    0 12px 28px -4px rgba(36, 129, 204, 0.6);
+  transform: translateY(-1px);
+}
+
+.tf-btn-primary:active:not(:disabled),
+.liquid-glass-button:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+/* Frosted Secondary Button */
+.tf-btn-secondary {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tf-border);
+  color: var(--tf-text);
+  font-weight: 500;
+  border-radius: 0.625rem;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.theme-light .tf-btn-secondary {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(226, 232, 240, 0.9);
+  color: #334155;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.tf-btn-secondary:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--tf-border-hover);
+  transform: translateY(-1px);
+}
+
+html.theme-light .tf-btn-secondary:hover:not(:disabled) {
+  background-color: rgba(241, 245, 249, 0.9);
+}
+
+/* Frosted Badges & Status Pills */
+.tf-pill,
+.liquid-glass-pill {
+  background-color: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--tf-border);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+html.theme-light .tf-pill {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+/* Backward compatibility for liquid-glass classes used across views */
+.liquid-glass {
+  background-color: var(--tf-card);
+  border: 1px solid var(--tf-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.liquid-glass-elevated {
+  background-color: var(--tf-card-elevated);
+  border: 1px solid var(--tf-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.35);
+}
+.liquid-glass-subtle {
+  background-color: var(--tf-surface-subtle);
+  border: 1px solid var(--tf-border-subtle);
+  border-radius: 0.5rem;
+}
+.liquid-glass-input {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--tf-border);
+  border-radius: 0.5rem;
+  color: var(--tf-text);
+  transition: all 0.15s ease;
+}
+html.theme-light .liquid-glass-input {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+.liquid-glass-input:focus {
+  outline: none;
+  border-color: #2481cc;
+  box-shadow: 0 0 0 3px rgba(36, 129, 204, 0.2);
+}
+.liquid-glass-button {
+  background-color: #2481cc;
+  color: #ffffff;
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+.liquid-glass-button:hover:not(:disabled) {
+  background-color: #1d73b8;
+}
+.liquid-glass-pill {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--tf-border);
+  border-radius: 0.5rem;
+}
+html.theme-light .tf-pill,
+html.theme-light .liquid-glass-pill {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  background-color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(226, 232, 240, 0.9);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 1);
+}
+
+/* ============================================================
+   TELEGRAM-STYLE CHAT SURFACES & BUBBLES
+   ============================================================ */
+
+.chat-canvas {
+  background-color: #0d121d;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(36, 129, 204, 0.08), transparent 70%),
+    rgba(10, 15, 26, 0.45);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+html.theme-light .chat-canvas {
+  background-color: #f1f5f9;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(36, 129, 204, 0.06), transparent 70%),
+    rgba(241, 245, 249, 0.65);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Incoming bubble: subtle neutral card with rounded corners */
+/* Incoming bubble: Frosted Acrylic */
+.chat-bubble-in {
+  background-color: #1a2234;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: rgba(26, 36, 56, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    inset 0 1px 0.5px 0 rgba(255, 255, 255, 0.18),
+    0 4px 12px -2px rgba(0, 0, 0, 0.25);
+}
+
+html.theme-light .chat-bubble-in {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  background-color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06);
+}
+
+/* Outgoing bubble: Telegram blue */
+/* Outgoing bubble: Liquid Telegram Blue */
+.chat-bubble-out {
+  background-color: #2481cc;
+  background-image: linear-gradient(135deg, rgba(36, 129, 204, 0.95), rgba(20, 110, 180, 0.95));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(36, 129, 204, 0.3);
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.45),
+    0 6px 20px -3px rgba(36, 129, 204, 0.45);
+}
+
+/* ============================================================
+   AMBIENT FLUID BLOOMS & FLOATING ORBS
+   ============================================================ */
+
+@keyframes liquid-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -40px) scale(1.08);
+  }
+  66% {
+    transform: translate(-25px, 25px) scale(0.95);
+  }
+}
+
+.liquid-orb-1 {
+  animation: liquid-float 18s ease-in-out infinite;
+}
+
+.liquid-orb-2 {
+  animation: liquid-float 24s ease-in-out infinite reverse;
+}
+
+.liquid-orb-3 {
+  animation: liquid-float 20s ease-in-out infinite;
+}
+
+/* Custom slim scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+  backdrop-filter: blur(4px);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.45);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

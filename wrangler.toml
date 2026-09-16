@@ -1,0 +1,47 @@
+name = "nnbot"
+compatibility_date = "2024-11-01"
+
+# Required: Nitro/Nuxt server code relies on Node built-ins.
+# Without this the Worker crashes at startup with
+# "Class extends value [object Module] is not a constructor".
+compatibility_flags = ["nodejs_compat"]
+
+# NOTE: `main` and `assets` are intentionally NOT set here.
+# Nitro generates .output/server/wrangler.json and overrides them; setting them
+# here only produces "Wrangler config `main` is overridden and will be ignored."
+
+# ---------------------------------------------------------------------------
+# Persistent storage. Workers have no filesystem, so the JSON "database"
+# (bot / groups / schedules / logs / moderation) lives in KV.
+#
+#   >> YOU MUST CREATE THIS AND PASTE THE REAL ID BELOW <<
+#
+#   npx wrangler login
+#   npx wrangler kv namespace create DATA
+#
+# It prints an id like "8f3a1c2d4b5e6f7890abcdef12345678". Paste it into `id`.
+# Deploys fail with error 10042 until this is a real namespace id.
+# ---------------------------------------------------------------------------
+[[kv_namespaces]]
+binding = "DATA"
+id = "e5b521dd8278431498a55a72b0c630a9"
+
+# Runs the "broadcast" Nitro task every minute (replaces node-cron).
+[triggers]
+crons = ["* * * * *"]
+
+# Non-secret runtime config. Nuxt maps NUXT_* env vars onto runtimeConfig.
+#
+# IMPORTANT: Nitro auto-enables `deployConfig` on Cloudflare, which means
+# environment variables set in the Cloudflare DASHBOARD are discarded on deploy.
+# Put non-secret values here, and set secrets via the CLI (never commit them):
+#
+#   npx wrangler secret put NUXT_ENCRYPTION_KEY
+#   npx wrangler secret put NUXT_WEBHOOK_SECRET
+#   npx wrangler secret put NUXT_TELEGRAM_BOT_TOKEN   # optional
+[vars]
+# Public URL of this Worker, used to register the Telegram webhook.
+# NUXT_PUBLIC_URL = "https://nnbot.pp_panha_bot.workers.dev"
+
+[observability]
+enabled = true

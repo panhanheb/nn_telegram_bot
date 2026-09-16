@@ -1,0 +1,48 @@
+{
+  "name": "teleflow-pro",
+  "version": "2.0.0",
+  "description": "Production-ready Telegram Bot Management, Auto-Reply, Broadcast Scheduling & Moderation Platform",
+  "type": "module",
+  "private": true,
+  "author": "Nheb Panha <hkmkh26@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NhebPanha/nn_panha_telegram_bot.git"
+  },
+  "keywords": [
+    "telegram",
+    "telegram-bot",
+    "nuxt",
+    "vue3",
+    "nitro",
+    "cloudflare-workers",
+    "moderation",
+    "broadcast-scheduler",
+    "gemini-ai"
+  ],
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "deploy": "wrangler deploy",
+    "preview:cf": "wrangler dev",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.5.1",
+    "@vueuse/core": "^10.9.0",
+    "@vueuse/nuxt": "^10.9.0",
+    "lucide-vue-next": "^0.368.0",
+    "nuxt": "^4.4.8",
+    "pinia": "^2.1.7",
+    "vue": "^3.5.39",
+    "vue-router": "^5.1.0"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.11.4",
+    "@types/node": "^20.12.7"
+  }
+}

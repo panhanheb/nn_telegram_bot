@@ -1,0 +1,52 @@
+[
+    {
+        "id": 1,
+        "title": "Morning Message",
+        "time": "08:00",
+        "message": "ដល់ម៉ោងចូលធ្វើការងារហើយ បងៗ ប្អូនៗ ទាំងឡាយ🌞",
+        "active": true,
+        "dayOfWeek": null,
+        "dayOfMonth": null
+    },
+    {
+        "id": 2,
+        "title": "Lunch Reminder",
+        "time": "12:00",
+        "message": "ដល់ម៉ោងបរិភោបអាហាហើយ បងៗ ប្អូនៗ ទាំងឡាយ ☀️",
+        "active": true,
+        "dayOfWeek": null,
+        "dayOfMonth": null,
+        "messageType": "text",
+        "mediaUrl": "",
+        "parseMode": "HTML",
+        "timezone": "Asia/Phnom_Penh",
+        "type": "daily",
+        "lastExecutedAt": "2026-07-27T05:00:00.000Z"
+    },
+    {
+        "id": 3,
+        "title": "Evening Message",
+        "time": "17:00",
+        "message": "ដល់ម៉ោងទៅផ្ទះហើយ បងៗ ប្អូនៗ ទាំងឡាយ 🌙",
+        "active": true,
+        "dayOfWeek": null,
+        "dayOfMonth": null,
+        "lastExecutedAt": "2026-08-05T10:00:00.000Z"
+    },
+    {
+        "id": 4,
+        "title": "TEST",
+        "type": "daily",
+        "time": "09:19",
+        "timezone": "Asia/Phnom_Penh",
+        "message": "Hello Test",
+        "messageType": "text",
+        "parseMode": "HTML",
+        "active": false,
+        "createdAt": "2026-07-14T04:42:24.193Z",
+        "mediaUrl": "",
+        "dayOfWeek": null,
+        "dayOfMonth": null,
+        "lastExecutedAt": "2026-07-25T02:19:00.000Z"
+    }
+]

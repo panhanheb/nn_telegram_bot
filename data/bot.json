@@ -1,0 +1,14 @@
+{
+    "id": 1,
+    "token": "7008190713fbfafdcec15abd4baf984a:46fcd5004bb9416664605edf93b9ba5419bd0bfac497b1c1d48b040646297fa1c829c9793a82548958ddbafa5a954fd8",
+    "username": "nn_panha_bot",
+    "firstName": "VANHABOT",
+    "active": true,
+    "permissions": {
+        "can_join_groups": true,
+        "can_read_all_group_messages": false,
+        "supports_inline_queries": false
+    },
+    "status": "ONLINE",
+    "createdAt": "2026-07-09T06:27:10.327Z"
+}

@@ -1,0 +1,7 @@
+{
+    "enabled": true,
+    "replyOnMention": true,
+    "model": "gemini-flash-latest",
+    "systemPrompt": "You are a friendly, concise assistant in a Telegram group chat. Answer the user helpfully in the same language they use. Keep replies short (a few sentences) and do not use Markdown headings.",
+    "maxTokens": 600
+}
