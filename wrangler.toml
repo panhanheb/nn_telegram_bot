@@ -1,4 +1,5 @@
 name = "nnbot"
+name = "nn-telegram-bot"
 compatibility_date = "2024-11-01"
 
 # Required: Nitro/Nuxt server code relies on Node built-ins.
@@ -13,14 +14,21 @@ compatibility_flags = ["nodejs_compat"]
 # ---------------------------------------------------------------------------
 # Persistent storage. Workers have no filesystem, so the JSON "database"
 # (bot / groups / schedules / logs / moderation) lives in KV.
+# (bot / groups / schedules / logs / moderation / chat) lives in Cloudflare KV.
 #
 #   >> YOU MUST CREATE THIS AND PASTE THE REAL ID BELOW <<
+# Cloudflare Error 10041 occurs when the namespace ID below does not exist
+# in your Cloudflare account (62e1f389eb95ef1bfb83c245a0c820e8).
 #
 #   npx wrangler login
 #   npx wrangler kv namespace create DATA
 #
 # It prints an id like "8f3a1c2d4b5e6f7890abcdef12345678". Paste it into `id`.
 # Deploys fail with error 10042 until this is a real namespace id.
+# HOW TO FIX:
+# 1. Cloudflare Dashboard -> Storage & Databases -> KV -> Create Namespace "DATA"
+#    (or run: npx wrangler kv namespace create DATA)
+# 2. Copy the resulting Namespace ID and paste it into `id` below:
 # ---------------------------------------------------------------------------
 [[kv_namespaces]]
 binding = "DATA"
