@@ -27,8 +27,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "deploy": "wrangler deploy",
-    "preview:cf": "wrangler dev",
+    "deploy": "wrangler deploy .output/server/index.mjs --assets .output/public",
+    "preview:cf": "wrangler dev .output/server/index.mjs --assets .output/public",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
