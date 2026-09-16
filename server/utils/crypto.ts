@@ -21,12 +21,15 @@ function fromHex(hex: string): Uint8Array {
   return out
 }
 
-async function getEncryptionKey(): Promise<CryptoKey> {
-  const config = useRuntimeConfig()
-  const secret = config.encryptionKey || 'default-secret-key-32-chars-long!'
-  // Hash the secret to exactly 32 bytes for AES-256
+async function getEncryptionKeyForSecret(secret: string): Promise<CryptoKey> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))
   return crypto.subtle.importKey('raw', digest, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt'])
+}
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const config = useRuntimeConfig()
+  const secret = config.encryptionKey || 'teleflow-ultra-secure-secret-encryption-key-32b'
+  return getEncryptionKeyForSecret(secret)
 }
 
 export async function encryptToken(text: string): Promise<string> {
@@ -41,21 +44,51 @@ export async function encryptToken(text: string): Promise<string> {
 }
 
 export async function decryptToken(encryptedText: string): Promise<string> {
-  try {
-    const [ivHex, encryptedHex] = encryptedText.split(':')
-    if (!ivHex || !encryptedHex) {
-      throw new Error('Invalid encrypted token format')
-    }
-    const key = await getEncryptionKey()
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-CBC', iv: fromHex(ivHex) },
-      key,
-      fromHex(encryptedHex)
-    )
-    return new TextDecoder().decode(decrypted)
-  } catch (error: any) {
-    throw new Error(`Failed to decrypt token: ${error.message}`)
+  if (!encryptedText) return ''
+  // If already a raw Telegram bot token (e.g. 123456:ABC-DEF...), return directly
+  if (/^\d+:[A-Za-z0-9_-]{35,}$/.test(encryptedText.trim())) {
+    return encryptedText.trim()
   }
+
+  const [ivHex, encryptedHex] = encryptedText.split(':')
+  if (!ivHex || !encryptedHex) {
+    return encryptedText
+  }
+
+  const config = useRuntimeConfig()
+  const candidateSecrets = Array.from(new Set([
+    config.encryptionKey,
+    'teleflow-ultra-secure-secret-encryption-key-32b',
+    'default-secret-key-32-chars-long!'
+  ])).filter(Boolean) as string[]
+
+  for (const secret of candidateSecrets) {
+    try {
+      const key = await getEncryptionKeyForSecret(secret)
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-CBC', iv: fromHex(ivHex) },
+        key,
+        fromHex(encryptedHex)
+      )
+      const result = new TextDecoder().decode(decrypted)
+      if (result) return result
+    } catch {
+      // Try next secret
+    }
+  }
+
+  if (config.telegramBotToken) {
+    return config.telegramBotToken
+  }
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    return process.env.TELEGRAM_BOT_TOKEN
+  }
+
+  if (/^\d+:/.test(encryptedText)) {
+    return encryptedText
+  }
+
+  throw new Error('Failed to decrypt token with known keys')
 }
 
 export async function hashPasswordWithSalt(password: string, salt: string): Promise<string> {

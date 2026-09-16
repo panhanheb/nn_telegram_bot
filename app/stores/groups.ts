@@ -19,13 +19,33 @@ export const useGroupsStore = defineStore('groups', {
   }),
 
   actions: {
-    async fetchGroups() {
+    async fetchGroups(sync = false) {
       this.isLoading = true
       try {
-        const data = await $fetch<TelegramGroup[]>('/api/groups')
+        const data = await $fetch<TelegramGroup[]>(`/api/groups${sync ? '?sync=true' : ''}`)
         this.groups = data
       } catch (error) {
         console.error('Failed to fetch groups:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async syncWithTelegram() {
+      this.isLoading = true
+      try {
+        const res = await $fetch<{
+          success: boolean
+          syncedGroupsCount: number
+          totalGroups: number
+          totalMembers: number
+          totalMessages: number
+        }>('/api/telegram/sync', { method: 'POST' })
+        await this.fetchGroups(true)
+        return res
+      } catch (error) {
+        console.error('Failed to sync with Telegram:', error)
+        throw error
       } finally {
         this.isLoading = false
       }

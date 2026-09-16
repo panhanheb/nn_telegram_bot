@@ -383,6 +383,22 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
 })
+
+const isSyncingTelegram = ref(false)
+const handleSyncTelegram = async () => {
+  isSyncingTelegram.value = true
+  try {
+    const res = await groupsStore.syncWithTelegram()
+    toast.success(`✨ Synced live from Telegram! Found ${res.totalGroups} groups and ${res.totalMessages} messages.`)
+    if (availableChats.value.length > 0 && !activeGroupId.value) {
+      loadChat(availableChats.value[0].id)
+    }
+  } catch (err: any) {
+    toast.error(err.data?.statusMessage || err.message || 'Failed to sync with Telegram')
+  } finally {
+    isSyncingTelegram.value = false
+  }
+}
 </script>
 
 <template>
@@ -404,6 +420,26 @@ onBeforeUnmount(() => {
               <Plus class="w-3.5 h-3.5" />
               <span>Connect</span>
             </button>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                @click="handleSyncTelegram"
+                :disabled="isSyncingTelegram"
+                class="p-1 rounded text-slate-400 hover:text-[#50a7ea] hover:bg-white/5 transition flex items-center cursor-pointer disabled:opacity-50"
+                title="Sync Live Groups & Messages from Telegram Bot"
+              >
+                <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isSyncingTelegram }" />
+              </button>
+              <button
+                type="button"
+                @click="showAddGroupModal = true"
+                class="px-2 py-0.5 rounded text-[#2481cc] hover:text-[#50a7ea] hover:bg-white/5 transition flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
+                title="Connect Telegram Group"
+              >
+                <Plus class="w-3.5 h-3.5" />
+                <span>Connect</span>
+              </button>
+            </div>
           </div>
           <div class="relative">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
@@ -454,6 +490,25 @@ onBeforeUnmount(() => {
           >
             Connect Telegram Group
           </button>
+          <p class="text-[11px] text-slate-400">Sync live from Telegram bot or connect your group directly.</p>
+          <div class="space-y-2">
+            <button
+              type="button"
+              @click="handleSyncTelegram"
+              :disabled="isSyncingTelegram"
+              class="tf-btn-secondary text-xs py-1.5 px-3 w-full justify-center cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <RefreshCw class="w-3.5 h-3.5 text-[#50a7ea]" :class="{ 'animate-spin': isSyncingTelegram }" />
+              <span>{{ isSyncingTelegram ? 'Syncing...' : 'Sync from Bot' }}</span>
+            </button>
+            <button
+              type="button"
+              @click="showAddGroupModal = true"
+              class="tf-btn-primary text-xs py-1.5 px-3 w-full justify-center cursor-pointer"
+            >
+              Connect Group ID
+            </button>
+          </div>
         </div>
       </aside>
 

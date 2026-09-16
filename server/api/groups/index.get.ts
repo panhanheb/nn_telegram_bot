@@ -1,6 +1,6 @@
 import { db } from '../../utils/db'
 import { decryptToken } from '../../utils/crypto'
-import { getChatInfo } from '../../utils/telegram'
+import { getChatInfo, getChatAdministrators } from '../../utils/telegram'
 
 let lastSyncTimestamp = 0
 const SYNC_COOLDOWN_MS = 3000
@@ -8,9 +8,38 @@ const SYNC_COOLDOWN_MS = 3000
 export default defineEventHandler(async (event) => {
   try {
     let groups = await db.getGroups()
+    const seen = new Set<string>()
+    groups = groups.filter(g => {
+      const key = (g.chatId || '').trim()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
     const query = getQuery(event)
     const forceSync = query.sync === 'true' || query.sync === '1'
     const now = Date.now()
+
+    const config = useRuntimeConfig()
+    const envChatId = (config.telegramGroupChatId || process.env.TELEGRAM_GROUP_CHAT_ID || '').trim()
+
+    // If no groups exist yet, auto-discover from configured group chat or Telegram
+    if (groups.length === 0 && envChatId) {
+      try {
+        const bot = await db.getBot()
+        let token = bot ? await decryptToken(bot.token).catch(() => '') : ''
+        if (!token) token = config.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || ''
+        if (token) {
+          try {
+            const info = await getChatInfo(token, envChatId)
+            const title = info.title || [info.first_name, info.last_name].filter(Boolean).join(' ') || (info.username ? `@${info.username}` : `Chat ${envChatId}`)
+            await db.createGroup(title, String(info.id || envChatId), info.type || 'group', true)
+          } catch {
+            await db.createGroup(`Default Group (${envChatId})`, envChatId, 'group', true)
+          }
+          groups = await db.getGroups()
+        }
+      } catch {}
+    }
 
     if ((forceSync || now - lastSyncTimestamp > SYNC_COOLDOWN_MS) && groups.length > 0) {
       lastSyncTimestamp = now
@@ -18,6 +47,7 @@ export default defineEventHandler(async (event) => {
         const bot = await db.getBot()
         if (bot && bot.active) {
           const token = await decryptToken(bot.token)
+          const botUserId = parseInt(token.split(':')[0], 10)
           let hasChanges = false
 
           await Promise.allSettled(
@@ -39,6 +69,14 @@ export default defineEventHandler(async (event) => {
                 if (info.id && String(info.id) !== g.chatId) {
                   updates.chatId = String(info.id)
                 }
+
+                // Check admin status
+                try {
+                  const admins = await getChatAdministrators(token, g.chatId)
+                  const botAdmin = admins.find((a: any) => a.user.id === botUserId)
+                  updates.isAdmin = !!botAdmin
+                  updates.permissionsVerified = !!botAdmin?.can_delete_messages
+                } catch {}
 
                 if (Object.keys(updates).length > 0) {
                   await db.updateGroup(g.id, updates)

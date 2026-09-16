@@ -267,6 +267,19 @@ const handleDeleteGroup = async (id: string, name: string) => {
     }
   }
 }
+const isSyncingTelegram = ref(false)
+
+const handleSyncTelegram = async () => {
+  isSyncingTelegram.value = true
+  try {
+    const res = await groupsStore.syncWithTelegram()
+    toast.success(`✨ Synced live from Telegram! Found ${res.totalGroups} groups, ${res.totalMembers} members, and ${res.totalMessages} messages.`)
+  } catch (err: any) {
+    toast.error(err.data?.statusMessage || err.message || 'Failed to sync with Telegram')
+  } finally {
+    isSyncingTelegram.value = false
+  }
+}
 </script>
 
 <template>
@@ -280,7 +293,18 @@ const handleDeleteGroup = async (id: string, name: string) => {
         </p>
       </div>
 
-      <div class="flex items-center gap-2 self-start sm:self-auto">
+      <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+        <button
+          type="button"
+          @click="handleSyncTelegram"
+          :disabled="isSyncingTelegram"
+          class="tf-btn-secondary px-3.5 py-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          title="Fetch live groups and member details from Telegram Bot"
+        >
+          <RefreshCw class="w-3.5 h-3.5 text-[#50a7ea]" :class="{ 'animate-spin': isSyncingTelegram }" />
+          <span>{{ isSyncingTelegram ? 'Syncing...' : 'Sync from Bot' }}</span>
+        </button>
+
         <button
           type="button"
           @click="showBulkModal = true"

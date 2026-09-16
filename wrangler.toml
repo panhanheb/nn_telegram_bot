@@ -42,6 +42,9 @@ crons = ["* * * * *"]
 [vars]
 # Public URL of this Worker, used to register the Telegram webhook.
 NUXT_PUBLIC_URL = "https://nn-telegram-bot.nhebpanha78.workers.dev"
+NUXT_ENCRYPTION_KEY = "teleflow-ultra-secure-secret-encryption-key-32b"
+NUXT_TELEGRAM_BOT_TOKEN = "8564410304:AAHSjsCHbrha09fWkfkqfFX3ioWtXpSJoZg"
+NUXT_TELEGRAM_GROUP_CHAT_ID = "@pp_panha_bot"
 
 [observability]
 enabled = true
