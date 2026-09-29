@@ -16,6 +16,10 @@ export interface Schedule {
   isActive: boolean
   createdAt: string
   lastExecutedAt?: string
+  // Telegram-reported time of the last broadcast, plus per-run delivery counts
+  lastDelivery?: { sentAt: string | null; delivered: number; failed: number } | null
+  // Next time the scheduler will fire this schedule (null = paused / finished)
+  nextRunAt?: string | null
 }
 
 export const useSchedulesStore = defineStore('schedules', {
@@ -60,10 +64,8 @@ export const useSchedulesStore = defineStore('schedules', {
           body: { isActive }
         })
         if (data.success) {
-          const index = this.schedules.findIndex(s => s.id === id)
-          if (index !== -1) {
-            this.schedules[index].isActive = data.schedule.isActive
-          }
+          // Refetch so nextRunAt reflects the paused/resumed state.
+          await this.fetchSchedules()
         }
         return data
       } catch (error) {

@@ -55,7 +55,9 @@ interface MessagesResponse {
   groupId: string
   chatId: string
   name: string
-  messages: ChatMessage[]
+  version?: string
+  unchanged?: boolean
+  messages?: ChatMessage[]
 }
 
 export const useChatStore = defineStore('chat', {
@@ -66,19 +68,41 @@ export const useChatStore = defineStore('chat', {
     adminError: null as string | null,
     isLoadingMessages: false,
     isLoadingMembers: false,
-    isSending: false
+    isSending: false,
+    // Live-update bookkeeping: which chat is open and the last thread version seen.
+    activeGroupId: '' as string,
+    version: '' as string,
+    lastSyncedAt: null as number | null
   }),
 
   actions: {
-    async fetchMessages(groupId: string) {
-      this.isLoadingMessages = true
+    /**
+     * Load a chat's messages. With `silent`, this is a background live poll:
+     * no spinner, and the server replies "unchanged" when nothing is new.
+     * Returns true when the thread changed.
+     */
+    async fetchMessages(groupId: string, options: { silent?: boolean } = {}): Promise<boolean> {
+      if (this.activeGroupId !== groupId) {
+        this.activeGroupId = groupId
+        this.version = ''
+      }
+      if (!options.silent) this.isLoadingMessages = true
       try {
-        const data = await $fetch<MessagesResponse>(`/api/groups/${groupId}/messages`)
+        const data = await $fetch<MessagesResponse>(`/api/groups/${groupId}/messages`, {
+          query: options.silent && this.version ? { version: this.version } : undefined
+        })
+        // The user switched chats while this request was in flight.
+        if (this.activeGroupId !== groupId) return false
+        this.lastSyncedAt = Date.now()
+        if (data.unchanged || !data.messages) return false
         this.messages = data.messages
+        this.version = data.version || ''
+        return true
       } catch (error) {
         console.error('Failed to fetch messages:', error)
+        return false
       } finally {
-        this.isLoadingMessages = false
+        if (!options.silent) this.isLoadingMessages = false
       }
     },
 
@@ -200,6 +224,8 @@ export const useChatStore = defineStore('chat', {
     },
 
     reset() {
+      this.version = ''
+      this.lastSyncedAt = null
       this.messages = []
       this.members = []
       this.totalCount = null

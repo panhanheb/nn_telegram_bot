@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSchedulesStore, type Schedule } from '../stores/schedules'
 import { useBotStore } from '../stores/bot'
 import { useGroupsStore } from '../stores/groups'
@@ -51,12 +51,100 @@ const formMediaUrl = ref('')
 const formParseMode = ref<'HTML' | 'MarkdownV2'>('HTML')
 const formTargetGroupIds = ref<number[]>([])
 
+// Live clock: re-renders relative times, and polls the server so the
+// Telegram delivery times and next-run times stay current.
+const now = ref(Date.now())
+let clockTimer: ReturnType<typeof setInterval> | undefined
+let pollTimer: ReturnType<typeof setInterval> | undefined
+
 onMounted(async () => {
   await Promise.all([
     schedulesStore.fetchSchedules(),
     botStore.fetchBot(),
     groupsStore.fetchGroups()
   ])
+  clockTimer = setInterval(() => { now.value = Date.now() }, 15000)
+  pollTimer = setInterval(() => {
+    if (!showModal.value) schedulesStore.fetchSchedules()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  clearInterval(clockTimer)
+  clearInterval(pollTimer)
+})
+
+// "in 2h 15m" / "5m ago"
+const relative = (iso: string) => {
+  const diff = Math.round((new Date(iso).getTime() - now.value) / 60000)
+  const abs = Math.abs(diff)
+  const text =
+    abs < 1 ? 'now'
+    : abs < 60 ? `${abs}m`
+    : abs < 1440 ? `${Math.floor(abs / 60)}h ${abs % 60}m`
+    : `${Math.floor(abs / 1440)}d ${Math.floor((abs % 1440) / 60)}h`
+  if (text === 'now') return 'just now'
+  return diff > 0 ? `in ${text}` : `${text} ago`
+}
+
+// Absolute time in the schedule's own timezone, e.g. "Tue 30 Sep, 08:00".
+const formatInTz = (iso: string, tz: string) => {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(new Date(iso))
+  } catch {
+    return new Date(iso).toLocaleString()
+  }
+}
+
+// ── Calendar (real month, real occurrences) ──────────────────────────────
+const calendarMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+const shiftMonth = (delta: number) => {
+  const d = calendarMonth.value
+  calendarMonth.value = new Date(d.getFullYear(), d.getMonth() + delta, 1)
+}
+const calendarTitle = computed(() =>
+  calendarMonth.value.toLocaleString('en-US', { month: 'long', year: 'numeric' })
+)
+const sameDate = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+const calendarCells = computed(() => {
+  const first = calendarMonth.value
+  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
+  const today = new Date(now.value)
+  const cells: Array<{ day: number; isToday: boolean; items: Array<{ id: string; label: string }> } | null> = []
+  for (let i = 0; i < first.getDay(); i++) cells.push(null)
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(first.getFullYear(), first.getMonth(), day)
+    const items = filteredSchedules.value
+      .filter(s => {
+        if (!s.isActive && s.type !== 'one_time') return false
+        switch (s.type) {
+          case 'daily': return true
+          case 'weekly': return s.dayOfWeek === date.getDay()
+          case 'monthly': return s.dayOfMonth === day
+          // One-time and cron: show the concrete next run (or the past send for one-time).
+          case 'one_time': {
+            const at = s.nextRunAt || s.lastDelivery?.sentAt || s.lastExecutedAt
+            return !!at && sameDate(new Date(at), date)
+          }
+          default:
+            return !!s.nextRunAt && sameDate(new Date(s.nextRunAt), date)
+        }
+      })
+      .map(s => ({ id: s.id, label: `${s.type === 'cron' ? '⏱' : s.time} ${s.title}` }))
+    cells.push({ day, isToday: sameDate(date, today), items })
+  }
+  return cells
 })
 
 const openAddModal = () => {
@@ -337,7 +425,23 @@ const filteredSchedules = computed(() => {
           <!-- Time & Frequency details (Matching prompt specification) -->
           <div class="space-y-1 text-xs mb-3">
             <p class="text-slate-300 font-medium">
-              Tomorrow · {{ s.time }}
+              <template v-if="s.nextRunAt">
+                Next: {{ formatInTz(s.nextRunAt, s.timezone) }}
+                <span class="text-sky-400">({{ relative(s.nextRunAt) }})</span>
+              </template>
+              <template v-else>
+                {{ s.isActive ? 'No upcoming run' : 'Paused' }} · {{ s.time }}
+              </template>
+            </p>
+            <p class="text-[11px]" :class="s.lastDelivery?.failed ? 'text-amber-400' : 'text-slate-400'">
+              <template v-if="s.lastDelivery?.sentAt">
+                Last sent (Telegram): {{ formatInTz(s.lastDelivery.sentAt, s.timezone) }} · {{ relative(s.lastDelivery.sentAt) }}
+                · ✓ {{ s.lastDelivery.delivered }}<template v-if="s.lastDelivery.failed"> · ✗ {{ s.lastDelivery.failed }} failed</template>
+              </template>
+              <template v-else-if="s.lastDelivery">
+                Last run failed for all {{ s.lastDelivery.failed }} group(s)
+              </template>
+              <template v-else>Not sent yet</template>
             </p>
             <div class="flex flex-wrap gap-1 pt-0.5">
               <span
@@ -406,23 +510,36 @@ const filteredSchedules = computed(() => {
     <div v-else-if="viewMode === 'calendar'" class="tf-card p-6 space-y-4">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white">Monthly Broadcast Distribution</h3>
-        <span class="text-xs text-slate-400">September 2026</span>
+        <div class="flex items-center gap-2 text-xs">
+          <button type="button" @click="shiftMonth(-1)" class="px-2 py-0.5 rounded hover:bg-white/5 text-slate-400 hover:text-white cursor-pointer">‹</button>
+          <span class="text-slate-300 min-w-[110px] text-center">{{ calendarTitle }}</span>
+          <button type="button" @click="shiftMonth(1)" class="px-2 py-0.5 rounded hover:bg-white/5 text-slate-400 hover:text-white cursor-pointer">›</button>
+        </div>
       </div>
 
       <div class="grid grid-cols-7 gap-2 text-center text-xs">
         <div v-for="d in daysOfWeek" :key="d" class="font-bold text-slate-400 py-1 uppercase text-[10px]">
           {{ d }}
         </div>
-        <div
-          v-for="day in 30"
-          :key="day"
-          class="min-h-[70px] p-1.5 rounded-lg border border-white/5 bg-white/[0.01] text-left relative flex flex-col justify-between"
-        >
-          <span class="text-[10px] text-slate-400 font-mono">{{ day }}</span>
-          <div v-if="day % 2 === 0" class="p-1 rounded bg-[#2481cc]/20 text-[#2481cc] text-[9px] font-medium truncate">
-            08:00 AM Daily Broadcast
+        <template v-for="(cell, i) in calendarCells" :key="i">
+          <div v-if="!cell" class="min-h-[70px]" />
+          <div
+            v-else
+            class="min-h-[70px] p-1.5 rounded-lg border text-left relative flex flex-col gap-1"
+            :class="cell.isToday ? 'border-[#2481cc]/60 bg-[#2481cc]/5' : 'border-white/5 bg-white/[0.01]'"
+          >
+            <span class="text-[10px] font-mono" :class="cell.isToday ? 'text-sky-400 font-bold' : 'text-slate-400'">{{ cell.day }}</span>
+            <div
+              v-for="item in cell.items.slice(0, 3)"
+              :key="item.id"
+              class="p-1 rounded bg-[#2481cc]/20 text-[#2481cc] text-[9px] font-medium truncate"
+              :title="item.label"
+            >
+              {{ item.label }}
+            </div>
+            <span v-if="cell.items.length > 3" class="text-[9px] text-slate-500">+{{ cell.items.length - 3 }} more</span>
           </div>
-        </div>
+        </template>
       </div>
     </div>
 

@@ -145,6 +145,7 @@ const handleScroll = () => {
   if (!messagesContainer.value) return
   const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value
   showScrollBottom.value = scrollHeight - scrollTop - clientHeight > 180
+  if (!showScrollBottom.value) newMessageCount.value = 0
 }
 
 const loadChat = async (id: string) => {
@@ -153,6 +154,8 @@ const loadChat = async (id: string) => {
   showStickerPicker.value = false
   showEmojiPicker.value = false
   chatStore.reset()
+  newMessageCount.value = 0
+  lastMembersPoll = Date.now()
   await Promise.all([chatStore.fetchMessages(id), chatStore.fetchMembers(id)])
   await scrollToBottom()
 }
@@ -210,6 +213,57 @@ const refresh = async () => {
     chatStore.fetchMessages(activeGroupId.value),
     chatStore.fetchMembers(activeGroupId.value)
   ])
+}
+
+// ── Live updates ─────────────────────────────────────────────────────────
+// Messages: cheap version check every 1.5s (server answers "unchanged" when
+// nothing is new). Members: every 30s, since that endpoint calls Telegram.
+// Both pause while the browser tab is hidden.
+const MESSAGE_POLL_MS = 1500
+const MEMBER_POLL_MS = 30000
+let messagesInFlight = false
+let lastMembersPoll = 0
+const newMessageCount = ref(0)
+
+const isNearBottom = () => {
+  const el = messagesContainer.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 180
+}
+
+const livePoll = async () => {
+  const id = activeGroupId.value
+  if (!id || document.hidden || messagesInFlight) return
+  messagesInFlight = true
+  try {
+    const prevLength = chatStore.messages.length
+    const wasAtBottom = isNearBottom()
+    const changed = await chatStore.fetchMessages(id, { silent: true })
+    if (changed && id === activeGroupId.value) {
+      const added = chatStore.messages.length - prevLength
+      if (wasAtBottom) {
+        await scrollToBottom()
+      } else if (added > 0) {
+        newMessageCount.value += added
+      }
+    }
+  } finally {
+    messagesInFlight = false
+  }
+
+  if (Date.now() - lastMembersPoll > MEMBER_POLL_MS) {
+    lastMembersPoll = Date.now()
+    chatStore.fetchMembers(id)
+  }
+}
+
+const onVisibilityChange = () => {
+  if (!document.hidden) livePoll()
+}
+
+const jumpToLatest = async () => {
+  newMessageCount.value = 0
+  await scrollToBottom()
 }
 
 const handleSend = async () => {
@@ -369,19 +423,20 @@ const formatTime = (iso: string) => {
 
 const mediaSrc = (fileId?: string) => (fileId ? `/api/media/${fileId}` : '')
 
-watch(() => chatStore.messages.length, scrollToBottom)
-
 onMounted(async () => {
   webhookStore.fetchInfo()
   if (groupsStore.groups.length === 0) await groupsStore.fetchGroups()
   if (availableChats.value.length > 0 && !activeGroupId.value) {
     loadChat(availableChats.value[0].id)
   }
-  pollTimer = setInterval(refresh, 3000)
+  lastMembersPoll = Date.now()
+  pollTimer = setInterval(livePoll, MESSAGE_POLL_MS)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 const isSyncingTelegram = ref(false)
@@ -804,11 +859,17 @@ const handleSyncTelegram = async () => {
         <button
           v-if="showScrollBottom"
           type="button"
-          @click="scrollToBottom"
+          @click="jumpToLatest"
           class="absolute bottom-20 right-6 p-2 rounded-full bg-[var(--tf-card-elevated)] border border-[var(--tf-border)] text-slate-300 hover:text-white shadow-lg cursor-pointer transition-all hover:scale-105 z-20"
-          title="Scroll to bottom"
+          :title="newMessageCount ? `${newMessageCount} new message(s)` : 'Scroll to bottom'"
         >
           <ChevronDown class="w-4 h-4" />
+          <span
+            v-if="newMessageCount"
+            class="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#2481cc] text-white text-[10px] font-bold flex items-center justify-center"
+          >
+            {{ newMessageCount > 99 ? '99+' : newMessageCount }}
+          </span>
         </button>
 
         <!-- Active Reply Target Banner -->

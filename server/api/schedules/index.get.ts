@@ -1,8 +1,10 @@
 import { db } from '../../utils/db'
+import { findNextOccurrence } from '../../utils/scheduler'
 
 export default defineEventHandler(async (event) => {
   try {
     const schedules = await db.getSchedules()
+    const now = new Date()
     
     // Sort schedules by time/cron alphabetically as a fallback sort
     const sorted = [...schedules].sort((a, b) => a.title.localeCompare(b.title))
@@ -22,7 +24,9 @@ export default defineEventHandler(async (event) => {
       targetGroupIds: s.targetGroupIds || [],
       isActive: s.active,
       createdAt: s.createdAt || new Date().toISOString(),
-      lastExecutedAt: s.lastExecutedAt
+      lastExecutedAt: s.lastExecutedAt,
+      lastDelivery: s.lastDelivery || null,
+      nextRunAt: findNextOccurrence(s, now)?.toISOString() || null
     }))
   } catch (error: any) {
     throw createError({

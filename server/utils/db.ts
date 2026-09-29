@@ -64,6 +64,13 @@ export interface JSONSchedule {
   targetGroupIds?: number[]
   createdAt: string
   lastExecutedAt?: string
+  // Result of the most recent dispatch. sentAt is Telegram's own message
+  // timestamp (Message.date), i.e. when Telegram actually posted it.
+  lastDelivery?: {
+    sentAt: string | null // ISO date string; null if every send failed
+    delivered: number
+    failed: number
+  }
 }
 
 export interface ModerationSettings {

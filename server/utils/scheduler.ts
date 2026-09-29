@@ -255,9 +255,74 @@ export async function seedDefaultSchedules() {
   }
 }
 
+/**
+ * The next instant `schedule` will fire strictly after `from`, or null if it
+ * never will (paused, one-time already sent, bad config). Used by the dashboard
+ * to show a real "next run" time.
+ */
+export function findNextOccurrence(schedule: JSONSchedule, from = new Date()): Date | null {
+  if (!schedule.active) return null
+  if (schedule.type === 'one_time' && schedule.lastExecutedAt) return null
+
+  const tz = schedule.timezone || 'Asia/Phnom_Penh'
+  const start = new Date(truncateToMinute(from).getTime() + 60000)
+
+  try {
+    getTzParts(start, tz)
+  } catch {
+    return null
+  }
+
+  if (schedule.type === 'cron') {
+    const fields = schedule.time.trim().split(/\s+/)
+    if (fields.length !== 5) return null
+    const [fMin, fHour, fDay, fMonth, fDow] = fields as [string, string, string, string, string]
+
+    // Walk forward, skipping whole days/hours that cannot match, for up to ~1 year.
+    let t = start.getTime()
+    const limit = t + 366 * MINUTES_PER_DAY * 60000
+    while (t < limit) {
+      const p = getTzParts(new Date(t), tz)
+      if (!matchCronField(fDay, p.day) || !matchCronField(fMonth, p.month) || !matchCronField(fDow, p.dayOfWeek)) {
+        t += ((23 - p.hour) * 60 + (60 - p.minute)) * 60000
+        continue
+      }
+      if (!matchCronField(fHour, p.hour)) {
+        t += (60 - p.minute) * 60000
+        continue
+      }
+      if (matchCronField(fMin, p.minute)) return new Date(t)
+      t += 60000
+    }
+    return null
+  }
+
+  // Fixed HH:MM: check today's slot and the following days (monthly needs up to ~2 months).
+  const [rawHour, rawMinute] = schedule.time.split(':')
+  const scheduledMinutes = parseInt(rawHour ?? '', 10) * 60 + parseInt(rawMinute ?? '', 10)
+  if (Number.isNaN(scheduledMinutes)) return null
+
+  const now = getTzParts(start, tz)
+  const firstSlot = start.getTime() + (scheduledMinutes - (now.hour * 60 + now.minute)) * 60000
+  for (let d = 0; d <= 62; d++) {
+    const candidate = new Date(firstSlot + d * MINUTES_PER_DAY * 60000)
+    if (candidate < start) continue
+    const p = getTzParts(candidate, tz)
+    if (schedule.type === 'weekly' && schedule.dayOfWeek !== p.dayOfWeek) continue
+    if (schedule.type === 'monthly' && schedule.dayOfMonth !== p.day) continue
+    return candidate
+  }
+  return null
+}
+
 // Dispatch a schedule's message to every active target, sequentially with a
 // 500ms delay between sends to stay within Telegram rate limits.
+// Records Telegram's own delivery timestamp on the schedule.
 async function dispatchSchedule(schedule: JSONSchedule, groups: JSONGroup[], token: string) {
+  let delivered = 0
+  let failed = 0
+  let latestTelegramDate = 0
+
   for (const group of groups) {
     let response: any = null
     try {
@@ -271,15 +336,29 @@ async function dispatchSchedule(schedule: JSONSchedule, groups: JSONGroup[], tok
         response = await sendTelegramMessage(token, group.chatId, schedule.message, schedule.parseMode)
       }
 
+      delivered++
+      // Telegram returns the posted Message; its `date` is unix seconds.
+      if (typeof response?.date === 'number') latestTelegramDate = Math.max(latestTelegramDate, response.date)
+
       await db.createLog(group.id, group.name, schedule.id, schedule.message, 'SUCCESS', null, response)
       console.log(`[Cron] Sent "${schedule.title}" to ${group.name} (${group.chatId}).`)
     } catch (sendError: any) {
+      failed++
       await db.createLog(group.id, group.name, schedule.id, schedule.message, 'FAILED', sendError.message)
       console.error(`[Cron] Failed to send "${schedule.title}" to ${group.name}:`, sendError.message)
     }
 
     // Rate-limit safeguard between sequential dispatches
     await delay(500)
+  }
+
+  const sentAt = latestTelegramDate
+    ? new Date(latestTelegramDate * 1000).toISOString()
+    : delivered > 0 ? new Date().toISOString() : null
+  try {
+    await db.updateSchedule(schedule.id, { lastDelivery: { sentAt, delivered, failed } })
+  } catch (err: any) {
+    console.warn(`[Cron] Could not record delivery for "${schedule.title}": ${err.message}`)
   }
 }
 
