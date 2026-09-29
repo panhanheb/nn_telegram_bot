@@ -9,6 +9,7 @@ const USERS_PATH = 'users.json'
 const MEMBERS_PATH = 'members.json'
 const MESSAGES_PATH = 'messages.json'
 const AI_PATH = 'ai.json'
+const WARNINGS_PATH = 'warnings.json'
 const LEGACY_BOTS_PATH = 'bots.json'
 
 // Interfaces
@@ -71,7 +72,26 @@ export interface ModerationSettings {
   deleteStickers: boolean
   deleteFiles: boolean
   blockedExtensions?: string[]
+  // Group admins/owner bypass automatic moderation.
+  exemptAdmins: boolean
+  // Warnings before a user is muted. 0 = never mute, only delete + warn.
+  warnLimit: number
+  // How long a mute lasts once warnLimit is reached.
+  muteMinutes: number
+  // Text returned by the /rules command.
+  rulesText: string
 }
+
+// Moderation strikes a user has collected in one chat.
+export interface JSONWarning {
+  chatId: string
+  userId: number
+  count: number
+  lastAt: string // ISO date string
+}
+
+// Strikes older than this are forgotten, so rare slips never add up to a mute.
+const WARNING_TTL_MS = 24 * 60 * 60 * 1000
 
 // AI auto-reply configuration. When enabled, the bot replies with a Claude-
 // generated answer whenever a user @-mentions it (or replies to it) in a group.
@@ -406,7 +426,7 @@ export const db = {
 
   // Moderation Settings
   async getModerationSettings(): Promise<ModerationSettings> {
-    return readJsonFile<ModerationSettings>(MODERATION_PATH, {
+    const defaults: ModerationSettings = {
       enabled: false,
       deleteLinks: false,
       deleteStickers: false,
@@ -421,8 +441,16 @@ export const db = {
         'pkg', 'deb', 'rpm', 'snap', 'flatpak', 'iso', 'img', 'vhd', 'vhdx', 'vmdk',
         'ova', 'ovf', 'elf', 'bin', 'run', 'out', 'zip', 'rar', '7z', 'tar', 'gz',
         'tgz', 'bz2', 'xz', 'cab', 'torrent', 'pdf', 'rtf'
-      ]
-    })
+      ],
+      exemptAdmins: true,
+      warnLimit: 3,
+      muteMinutes: 60,
+      rulesText:
+        '1. Be respectful to everyone.\n2. No links, stickers or suspicious files.\n3. Repeated violations lead to a temporary mute.'
+    }
+    // Merge over defaults so settings saved before a field existed still get it.
+    const stored = await readJsonFile<Partial<ModerationSettings>>(MODERATION_PATH, {})
+    return { ...defaults, ...stored }
   },
 
   async saveModerationSettings(updates: Partial<ModerationSettings>): Promise<ModerationSettings> {
@@ -579,6 +607,69 @@ export const db = {
 
     await this.saveChatMessages(messages)
     return newMessage
+  },
+
+  // Update a stored message in place (e.g. after the sender edited it).
+  async updateChatMessage(
+    chatId: string,
+    messageId: number,
+    updates: Partial<Omit<JSONChatMessage, 'id' | 'chatId' | 'messageId'>>
+  ): Promise<boolean> {
+    const messages = await this.getChatMessages()
+    let changed = false
+    for (const m of messages) {
+      if (m.chatId === chatId && m.messageId === messageId) {
+        Object.assign(m, updates)
+        changed = true
+      }
+    }
+    if (changed) await this.saveChatMessages(messages)
+    return changed
+  },
+
+  // Drop every stored copy of a message from the chat history.
+  async removeChatMessage(chatId: string, messageId: number): Promise<boolean> {
+    const messages = await this.getChatMessages()
+    const remaining = messages.filter(m => !(m.chatId === chatId && m.messageId === messageId))
+    if (remaining.length === messages.length) return false
+    await this.saveChatMessages(remaining)
+    return true
+  },
+
+  // Moderation Warnings (strikes per user per chat)
+  async getWarnings(): Promise<JSONWarning[]> {
+    return readJsonFile<JSONWarning[]>(WARNINGS_PATH, [])
+  },
+
+  // Active (non-expired) strike count for a user in a chat.
+  async getWarningCount(chatId: string, userId: number): Promise<number> {
+    const warnings = await this.getWarnings()
+    const w = warnings.find(x => x.chatId === chatId && x.userId === userId)
+    if (!w || Date.now() - new Date(w.lastAt).getTime() > WARNING_TTL_MS) return 0
+    return w.count
+  },
+
+  // Add a strike and return the user's new active count.
+  async addWarning(chatId: string, userId: number): Promise<number> {
+    const warnings = await this.getWarnings()
+    const now = new Date()
+    let w = warnings.find(x => x.chatId === chatId && x.userId === userId)
+    if (!w) {
+      w = { chatId, userId, count: 0, lastAt: now.toISOString() }
+      warnings.push(w)
+    } else if (now.getTime() - new Date(w.lastAt).getTime() > WARNING_TTL_MS) {
+      w.count = 0
+    }
+    w.count += 1
+    w.lastAt = now.toISOString()
+    await writeJsonFile(WARNINGS_PATH, warnings)
+    return w.count
+  },
+
+  async resetWarnings(chatId: string, userId: number): Promise<void> {
+    const warnings = await this.getWarnings()
+    const remaining = warnings.filter(x => !(x.chatId === chatId && x.userId === userId))
+    if (remaining.length !== warnings.length) await writeJsonFile(WARNINGS_PATH, remaining)
   },
 
   // User Management

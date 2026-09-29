@@ -2,6 +2,7 @@ import { db, ModerationSettings, JSONGroup } from './db'
 import {
   deleteMessage,
   getChatMember,
+  muteChatMember,
   sendTelegramMessage,
   TelegramIncomingMessage,
   TelegramUpdate
@@ -261,16 +262,63 @@ async function autoRegisterChat(chat: {
   console.log(`[Discovery] Auto-registered ${chat.type} "${name}" (${chatId})`)
 }
 
+// Is this user the chat owner or an admin?
+async function isChatAdmin(token: string, chatId: string, userId: number): Promise<boolean> {
+  try {
+    const member = await getChatMember(token, chatId, userId)
+    return member.status === 'creator' || member.status === 'administrator'
+  } catch (err: any) {
+    console.warn(`[Moderation] Could not check admin status of ${userId} in ${chatId}: ${err.message}`)
+    return false
+  }
+}
+
+// After a violation: add a strike, and mute the user once they hit the limit.
+// Returns the line appended to the public notice.
+async function applyStrike(
+  token: string,
+  chatId: string,
+  chatTitle: string,
+  msg: TelegramIncomingMessage,
+  settings: ModerationSettings
+): Promise<string> {
+  if (!msg.from || !settings.warnLimit || settings.warnLimit <= 0) return ''
+
+  const limit = settings.warnLimit
+  const count = await db.addWarning(chatId, msg.from.id)
+  if (count < limit) return `\n⚠️ Warning ${count}/${limit}`
+
+  const minutes = Math.max(1, settings.muteMinutes || 60)
+  const who = msg.from.username ? `@${msg.from.username}` : (msg.from.first_name || 'user')
+  const group = await db.getGroupByChatId(chatId)
+  try {
+    await muteChatMember(token, chatId, msg.from.id, Math.floor(Date.now() / 1000) + minutes * 60)
+    await db.resetWarnings(chatId, msg.from.id)
+    await db.createLog(group ? group.id : null, chatTitle, null, `🔇 Muted ${who} for ${minutes} min after ${limit} warnings`, 'SUCCESS', null, null)
+    console.log(`[Moderation] Muted ${who} in "${chatTitle}" for ${minutes} min`)
+    return `\n🔇 Muted for ${minutes} minutes (${limit}/${limit} warnings).`
+  } catch (err: any) {
+    // Usually: basic group (not supergroup) or bot lacks "ban users" rights.
+    console.warn(`[Moderation] Failed to mute ${who} in ${chatId}: ${err.message}`)
+    await db.createLog(group ? group.id : null, chatTitle, null, `Mute failed for ${who}: ${err.message}`, 'FAILED', err.message)
+    return `\n⚠️ Warning ${count}/${limit}`
+  }
+}
+
+/**
+ * Enforce moderation rules on a message.
+ * Returns true if the message was deleted, so later steps can skip it.
+ */
 async function moderateMessage(
   token: string,
   botUserId: number,
   msg: TelegramIncomingMessage,
   settings: ModerationSettings
-) {
-  if (!settings.enabled) return
+): Promise<boolean> {
+  if (!settings.enabled) return false
   // Never moderate the bot's own messages (e.g. scheduled broadcasts)
-  if (msg.from && msg.from.id === botUserId) return
-  if (msg.chat.type === 'private') return
+  if (msg.from && msg.from.id === botUserId) return false
+  if (msg.chat.type === 'private') return false
 
   let reason = ''
   let fileDetail = ''
@@ -286,23 +334,31 @@ async function moderateMessage(
       fileDetail = fileCheck.ext ? ` (${fileCheck.ext})` : ''
     }
   }
-  if (!reason) return
+  if (!reason) return false
 
   const chatId = String(msg.chat.id)
   const who = msg.from?.username ? `@${msg.from.username}` : (msg.from?.first_name || 'user')
   const chatTitle = msg.chat.title || chatId
 
+  // Checked only after a violation is found, to avoid an API call per message.
+  if (settings.exemptAdmins && msg.from && (await isChatAdmin(token, chatId, msg.from.id))) {
+    return false
+  }
+
   try {
     await deleteMessage(token, chatId, msg.message_id)
+
+    const strikeLine = await applyStrike(token, chatId, chatTitle, msg, settings)
 
     // Post a public notice in the group tagging the sender.
     const mention = buildMention(msg.from)
     const noticeText =
-      reason === 'sticker'
+      (reason === 'sticker'
         ? `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, stickers are not allowed in this group.`
         : reason === 'link'
         ? `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, links are not allowed in this group.`
-        : `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, files ${fileDetail ? fileDetail + ' ' : ''}are not allowed in this group.`
+        : `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, files ${fileDetail ? fileDetail + ' ' : ''}are not allowed in this group.`) +
+      strikeLine
     try {
       await sendTelegramMessage(token, chatId, noticeText, 'HTML')
     } catch (notifyErr: any) {
@@ -320,8 +376,11 @@ async function moderateMessage(
       null
     )
     console.log(`[Moderation] Deleted ${reason}${fileDetail} in "${chatTitle}" from ${who}`)
+    return true
   } catch (err: any) {
+    // Deletion failed (e.g. bot is not admin): the message stays, so treat it as kept.
     console.warn(`[Moderation] Failed to delete ${reason} in chat ${chatId}: ${err.message}`)
+    return false
   }
 }
 
@@ -478,8 +537,131 @@ async function maybeAiReply(
   }
 }
 
+// The sender edited a message: keep the stored copy in sync instead of adding a new one.
+async function recordEdit(msg: TelegramIncomingMessage) {
+  const media = extractMedia(msg)
+  const text = msg.text || msg.caption || (media.mediaType ? '' : '[media]')
+  await db.updateChatMessage(String(msg.chat.id), msg.message_id, { text, ...media })
+}
+
+const HELP_TEXT = [
+  '🤖 <b>Available commands</b>',
+  '/help - show this list',
+  '/rules - show the group rules',
+  '/warns - show your warnings (admins: reply to a user)',
+  '/resetwarns - admins: reply to a user to clear their warnings'
+].join('\n')
+
 /**
- * Handle a single Telegram update: discover its chat, record activity, then moderate it.
+ * Handle slash commands (/start, /help, /rules, /warns, /resetwarns).
+ * Returns true for any slash-command message so it never reaches the AI step,
+ * including commands addressed to other bots.
+ */
+async function handleBotCommand(
+  token: string,
+  botUserId: number,
+  botUsername: string | undefined,
+  msg: TelegramIncomingMessage,
+  settings: ModerationSettings
+): Promise<boolean> {
+  const text = (msg.text || '').trim()
+  if (!text.startsWith('/')) return false
+  if (msg.chat.type === 'channel') return true
+
+  // "/cmd@SomeBot args" -> command "cmd", target "SomeBot"
+  const match = text.match(/^\/([a-z0-9_]+)(?:@([a-z0-9_]+))?/i)
+  if (!match?.[1]) return true
+  const command = match[1].toLowerCase()
+  const target = match[2]
+  if (target && (!botUsername || target.toLowerCase() !== botUsername.toLowerCase())) return true
+
+  const chatId = String(msg.chat.id)
+  const isPrivate = msg.chat.type === 'private'
+
+  const reply = async (html: string) => {
+    const sent = await sendTelegramMessage(token, chatId, html, 'HTML', msg.message_id)
+    const bot = await db.getBot()
+    await db.addChatMessage({
+      chatId,
+      messageId: sent.message_id,
+      fromId: null,
+      fromName: bot?.firstName || 'Bot',
+      fromUsername: bot?.username,
+      isBot: true,
+      direction: 'out',
+      text: html.replace(/<[^>]+>/g, ''),
+      date: new Date().toISOString(),
+      replyToMessageId: msg.message_id
+    })
+  }
+
+  try {
+    switch (command) {
+      case 'start':
+      case 'help':
+        await reply(command === 'start' ? `👋 Hi! I help moderate and manage this group.\n\n${HELP_TEXT}` : HELP_TEXT)
+        break
+
+      case 'rules':
+        await reply(`📜 <b>Group rules</b>\n${escapeHtml(settings.rulesText || 'No rules have been set.')}`)
+        break
+
+      case 'warns': {
+        if (isPrivate || !msg.from) {
+          await reply('This command only works in groups.')
+          break
+        }
+        // Admins can reply to someone to check that user's warnings.
+        const replied = msg.reply_to_message?.from
+        let subject = msg.from
+        if (replied && replied.id !== msg.from.id && (await isChatAdmin(token, chatId, msg.from.id))) {
+          subject = replied
+        }
+        const count = await db.getWarningCount(chatId, subject.id)
+        const limit = settings.warnLimit > 0 ? `/${settings.warnLimit}` : ''
+        await reply(`${buildMention(subject)} has ${count}${limit} warning(s).`)
+        break
+      }
+
+      case 'resetwarns': {
+        if (isPrivate || !msg.from) {
+          await reply('This command only works in groups.')
+          break
+        }
+        if (!(await isChatAdmin(token, chatId, msg.from.id))) {
+          await reply('⛔ Only group admins can reset warnings.')
+          break
+        }
+        const replied = msg.reply_to_message?.from
+        if (!replied || replied.id === botUserId) {
+          await reply('Reply to a user\'s message with /resetwarns to clear their warnings.')
+          break
+        }
+        await db.resetWarnings(chatId, replied.id)
+        await reply(`✅ Warnings cleared for ${buildMention(replied)}.`)
+        break
+      }
+
+      default:
+        if (isPrivate) await reply('Unknown command. Send /help to see what I can do.')
+    }
+  } catch (err: any) {
+    console.warn(`[Command] /${command} failed in ${chatId}: ${err.message}`)
+  }
+  return true
+}
+
+/**
+ * Handle a single Telegram update.
+ *
+ * Flow for a message:
+ *   1. Discovery   - register/rename/migrate the chat
+ *   2. Delete cmd  - "@bot delete" reply from an admin (stop)
+ *   3. Moderation  - if the message is deleted, drop it from history and stop
+ *   4. Edits       - update the stored copy only (no AI, no commands) and stop
+ *   5. Record      - save the member and message to history
+ *   6. Commands    - /help, /rules, /warns, /resetwarns (stop)
+ *   7. AI reply    - Gemini answer when mentioned
  */
 export async function handleTelegramUpdate(token: string, botUserId: number, update: TelegramUpdate) {
   const settings = await db.getModerationSettings()
@@ -495,6 +677,7 @@ export async function handleTelegramUpdate(token: string, botUserId: number, upd
     return
   }
 
+  const isEdit = !!(update.edited_message || update.edited_channel_post)
   const msg =
     update.message || update.channel_post || update.edited_message || update.edited_channel_post
   if (!msg) return
@@ -523,9 +706,21 @@ export async function handleTelegramUpdate(token: string, botUserId: number, upd
   await autoRegisterChat(msg.chat)
 
   // Manual "@bot delete" reply-command takes priority; if handled, stop here.
-  if (await handleDeleteCommand(token, botUserId, botUsername, msg)) return
+  if (!isEdit && (await handleDeleteCommand(token, botUserId, botUsername, msg))) return
+
+  // Moderate before anything else so removed messages are never stored or
+  // answered. Edits are moderated too (a link can be added by editing).
+  if (await moderateMessage(token, botUserId, msg, settings)) {
+    if (isEdit) await db.removeChatMessage(String(msg.chat.id), msg.message_id)
+    return
+  }
+
+  if (isEdit) {
+    await recordEdit(msg)
+    return
+  }
 
   await recordActivity(msg)
-  await moderateMessage(token, botUserId, msg, settings)
+  if (await handleBotCommand(token, botUserId, botUsername, msg, settings)) return
   await maybeAiReply(token, botUserId, botUsername, msg)
 }

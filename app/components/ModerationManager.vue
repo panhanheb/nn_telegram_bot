@@ -48,13 +48,43 @@ const restrictedExtensions = [
   '.sh', '.bash', '.py', '.php', '.dll', '.apk', '.dmg', '.pkg', '.zip', '.rar'
 ]
 
+// Editable copies of the escalation settings, saved together with one button.
+const warnLimit = ref(3)
+const muteMinutes = ref(60)
+const rulesText = ref('')
+const isSavingEscalation = ref(false)
+
+const syncEscalationForm = () => {
+  warnLimit.value = moderationStore.settings.warnLimit ?? 3
+  muteMinutes.value = moderationStore.settings.muteMinutes ?? 60
+  rulesText.value = moderationStore.settings.rulesText ?? ''
+}
+
 onMounted(async () => {
   await Promise.all([
     moderationStore.fetchSettings(),
     botStore.fetchBot(),
     webhookStore.fetchInfo()
   ])
+  syncEscalationForm()
 })
+
+const saveEscalation = async () => {
+  isSavingEscalation.value = true
+  try {
+    await moderationStore.updateSettings({
+      warnLimit: Number(warnLimit.value),
+      muteMinutes: Number(muteMinutes.value),
+      rulesText: rulesText.value
+    })
+    syncEscalationForm()
+    toast.success('Warning & mute settings saved')
+  } catch (error: any) {
+    toast.error(error?.statusMessage || error?.data?.statusMessage || 'Failed to save settings')
+  } finally {
+    isSavingEscalation.value = false
+  }
+}
 
 const handleSetupWebhook = async () => {
   try {
@@ -65,7 +95,7 @@ const handleSetupWebhook = async () => {
   }
 }
 
-const toggle = async (key: 'enabled' | 'deleteLinks' | 'deleteStickers' | 'deleteFiles') => {
+const toggle = async (key: 'enabled' | 'deleteLinks' | 'deleteStickers' | 'deleteFiles' | 'exemptAdmins') => {
   const next = !moderationStore.settings[key]
   try {
     await moderationStore.updateSettings({ [key]: next })
@@ -235,6 +265,60 @@ const toggleExtension = async (ext: string) => {
               </div>
               <span class="text-[10px] text-slate-400">Optional</span>
             </label>
+          </div>
+        </div>
+
+        <!-- Rule: Warnings, Mute Escalation & Commands -->
+        <div class="tf-card p-5 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Ban class="w-4 h-4" />
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-white">WARNINGS & MUTE</h4>
+              <p class="text-[11px] text-slate-400">Each deleted message is a warning; users are muted when they reach the limit</p>
+            </div>
+          </div>
+
+          <div class="space-y-3 pt-1 text-xs">
+            <label class="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5 cursor-pointer">
+              <div class="flex items-center gap-2.5">
+                <input type="checkbox" :checked="moderationStore.settings.exemptAdmins" @change="toggle('exemptAdmins')" class="rounded text-[#2481cc]" />
+                <span class="text-white font-medium">Exempt group admins from auto-moderation</span>
+              </div>
+              <span class="text-[10px] text-slate-400">Recommended</span>
+            </label>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="space-y-1">
+                <span class="text-slate-300 font-medium">Warnings before mute (0 = never mute)</span>
+                <input v-model.number="warnLimit" type="number" min="0" max="20" class="tf-input w-full p-2 text-xs" />
+              </label>
+              <label class="space-y-1">
+                <span class="text-slate-300 font-medium flex items-center gap-1"><Clock class="w-3 h-3" /> Mute duration (minutes)</span>
+                <input v-model.number="muteMinutes" type="number" min="1" class="tf-input w-full p-2 text-xs" />
+              </label>
+            </div>
+            <p class="text-[10px] text-slate-400">
+              Warnings expire 24 hours after a user's last violation. Muting requires a supergroup where the bot has the "Ban users" admin right.
+            </p>
+
+            <label class="block space-y-1">
+              <span class="text-slate-300 font-medium">Group rules (shown by /rules)</span>
+              <textarea v-model="rulesText" rows="4" maxlength="3000" class="tf-input w-full p-2 text-xs" />
+            </label>
+            <p class="text-[10px] text-slate-400">
+              Bot commands: /help, /rules, /warns, /resetwarns (admins, reply to a user).
+            </p>
+
+            <button
+              type="button"
+              :disabled="isSavingEscalation"
+              @click="saveEscalation"
+              class="tf-btn-secondary px-3 py-1.5 text-xs font-medium cursor-pointer disabled:opacity-50"
+            >
+              {{ isSavingEscalation ? 'Saving…' : 'Save warning settings' }}
+            </button>
           </div>
         </div>
 

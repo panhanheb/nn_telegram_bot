@@ -10,6 +10,22 @@ export default defineEventHandler(async (event) => {
     if (body.deleteStickers !== undefined) updates.deleteStickers = !!body.deleteStickers
     if (body.deleteFiles !== undefined) updates.deleteFiles = !!body.deleteFiles
     if (Array.isArray(body.blockedExtensions)) updates.blockedExtensions = body.blockedExtensions
+    if (body.exemptAdmins !== undefined) updates.exemptAdmins = !!body.exemptAdmins
+    if (body.warnLimit !== undefined) {
+      const n = Math.floor(Number(body.warnLimit))
+      if (!Number.isFinite(n) || n < 0 || n > 20) {
+        throw createError({ statusCode: 400, statusMessage: 'warnLimit must be between 0 and 20' })
+      }
+      updates.warnLimit = n
+    }
+    if (body.muteMinutes !== undefined) {
+      const n = Math.floor(Number(body.muteMinutes))
+      if (!Number.isFinite(n) || n < 1 || n > 525600) {
+        throw createError({ statusCode: 400, statusMessage: 'muteMinutes must be between 1 and 525600' })
+      }
+      updates.muteMinutes = n
+    }
+    if (typeof body.rulesText === 'string') updates.rulesText = body.rulesText.slice(0, 3000)
 
     const settings = await db.saveModerationSettings(updates)
 

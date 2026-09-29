@@ -285,10 +285,8 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 <div align="center">
 
-**Developed with ❤️ by [Nheb Panha](https://github.com/NhebPanha)**
+**Developed with ❤️ by [Nheb Panha]()**
 
 *Empowering automated Telegram operations and intelligent community management.*
-
-
 
 </div>

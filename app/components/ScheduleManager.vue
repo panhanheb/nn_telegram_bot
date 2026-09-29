@@ -183,6 +183,38 @@ const formatRecurrence = (s: Schedule) => {
 
 // Days of week
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// ── Alerts by group ───────────────────────────────────────────────────────
+// Schedule targets are numeric group IDs; the groups store exposes them as strings.
+const groupNameById = computed(() => {
+  const map = new Map<number, string>()
+  for (const g of groupsStore.groups) map.set(Number(g.id), g.name)
+  return map
+})
+
+const toggleTarget = (id: string | number) => {
+  const n = Number(id)
+  const idx = formTargetGroupIds.value.indexOf(n)
+  if (idx > -1) formTargetGroupIds.value.splice(idx, 1)
+  else formTargetGroupIds.value.push(n)
+}
+
+// Human-readable target list for a schedule card ("All active groups" when empty).
+const targetNames = (s: Schedule): string[] => {
+  if (!s.targetGroupIds || s.targetGroupIds.length === 0) return []
+  return s.targetGroupIds.map(id => groupNameById.value.get(Number(id)) || `Removed group #${id}`)
+}
+
+// 'all' = every schedule; otherwise a group ID - show schedules that reach that group
+// (explicitly targeted, or sent to all groups).
+const groupFilter = ref<string>('all')
+const filteredSchedules = computed(() => {
+  if (groupFilter.value === 'all') return schedulesStore.schedules
+  const id = Number(groupFilter.value)
+  return schedulesStore.schedules.filter(
+    s => !s.targetGroupIds || s.targetGroupIds.length === 0 || s.targetGroupIds.map(Number).includes(id)
+  )
+})
 </script>
 
 <template>
@@ -239,6 +271,17 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
       </div>
     </div>
 
+    <!-- Filter alerts by group -->
+    <div v-if="schedulesStore.schedules.length > 0" class="flex flex-wrap items-center gap-2 text-xs">
+      <Users class="w-3.5 h-3.5 text-slate-400" />
+      <span class="text-slate-400">Alerts for group:</span>
+      <select v-model="groupFilter" class="tf-input p-1.5 text-xs min-w-[180px]">
+        <option value="all">All groups</option>
+        <option v-for="g in groupsStore.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+      </select>
+      <span class="text-slate-500">{{ filteredSchedules.length }} schedule(s)</span>
+    </div>
+
     <!-- Empty State -->
     <div v-if="schedulesStore.schedules.length === 0" class="tf-card py-16 text-center space-y-3">
       <div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-slate-400 mx-auto flex items-center justify-center">
@@ -257,10 +300,17 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
       </button>
     </div>
 
+    <div
+      v-else-if="filteredSchedules.length === 0"
+      class="tf-card py-10 text-center text-xs text-slate-400"
+    >
+      No alerts are scheduled for this group.
+    </div>
+
     <!-- LIST VIEW: Cards matching prompt specification -->
     <div v-else-if="viewMode === 'list'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
       <div
-        v-for="s in schedulesStore.schedules"
+        v-for="s in filteredSchedules"
         :key="s.id"
         class="tf-card tf-card-interactive p-5 flex flex-col justify-between group relative overflow-visible"
       >
@@ -289,9 +339,21 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             <p class="text-slate-300 font-medium">
               Tomorrow · {{ s.time }}
             </p>
-            <p class="text-slate-400 text-[11px]">
-              12 groups · 48,291 recipients
-            </p>
+            <div class="flex flex-wrap gap-1 pt-0.5">
+              <span
+                v-if="targetNames(s).length === 0"
+                class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300 text-[10px]"
+              >
+                👥 All active groups
+              </span>
+              <span
+                v-for="name in targetNames(s)"
+                :key="name"
+                class="px-1.5 py-0.5 rounded bg-[#2481cc]/15 border border-[#2481cc]/30 text-sky-300 text-[10px] truncate max-w-[160px]"
+              >
+                👥 {{ name }}
+              </span>
+            </div>
             <p class="text-sky-400 font-medium text-[11px] pt-1">
               {{ formatRecurrence(s) }}
             </p>
@@ -369,14 +431,16 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
       <h3 class="text-sm font-bold text-white">24-Hour Broadcast Timeline</h3>
       <div class="relative pl-6 border-l-2 border-[#2481cc]/30 space-y-6 text-xs">
         <div
-          v-for="s in schedulesStore.schedules"
+          v-for="s in filteredSchedules"
           :key="s.id"
           class="relative space-y-1"
         >
           <span class="absolute -left-[31px] top-0 w-3 h-3 rounded-full bg-[#2481cc] ring-4 ring-[var(--tf-card)]"></span>
-          <p class="font-mono text-[10px] text-sky-400">{{ s.time }} (Daily)</p>
+          <p class="font-mono text-[10px] text-sky-400">{{ s.time }} · {{ formatRecurrence(s) }}</p>
           <h4 class="font-bold text-white">{{ s.title }}</h4>
-          <p class="text-slate-400 text-[11px]">12 targets · {{ s.parseMode }} formatting</p>
+          <p class="text-slate-400 text-[11px]">
+            {{ targetNames(s).length ? targetNames(s).join(', ') : 'All active groups' }}
+          </p>
         </div>
       </div>
     </div>
@@ -419,6 +483,57 @@ const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
               <option value="Asia/Bangkok">Asia/Bangkok (GMT+7)</option>
               <option value="UTC">UTC (GMT+0)</option>
             </select>
+          </div>
+
+          <div v-if="formType === 'weekly'">
+            <label class="block font-semibold text-slate-300 mb-1">Day of Week</label>
+            <select v-model.number="formDayOfWeek" class="tf-input w-full p-2.5">
+              <option v-for="(d, i) in daysOfWeek" :key="d" :value="i">{{ d }}</option>
+            </select>
+          </div>
+          <div v-if="formType === 'monthly'">
+            <label class="block font-semibold text-slate-300 mb-1">Day of Month</label>
+            <input v-model.number="formDayOfMonth" type="number" min="1" max="31" class="tf-input w-full p-2.5" />
+          </div>
+
+          <!-- Target groups: which groups receive this alert -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-semibold text-slate-300">Send Alert To</label>
+              <button
+                v-if="formTargetGroupIds.length > 0"
+                type="button"
+                @click="formTargetGroupIds = []"
+                class="text-[10px] text-sky-400 hover:text-white cursor-pointer"
+              >
+                Clear (send to all)
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-2">
+              {{ formTargetGroupIds.length === 0
+                ? 'No group selected: the alert goes to all active groups.'
+                : `${formTargetGroupIds.length} group(s) selected.` }}
+            </p>
+            <div v-if="groupsStore.groups.length === 0" class="text-[11px] text-slate-500 italic">
+              No groups yet. Add the bot to a group first.
+            </div>
+            <div v-else class="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-white/5 p-1.5">
+              <label
+                v-for="g in groupsStore.groups"
+                :key="g.id"
+                class="flex items-center gap-2 p-1.5 rounded-md hover:bg-white/[0.03] cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  :checked="formTargetGroupIds.includes(Number(g.id))"
+                  @change="toggleTarget(g.id)"
+                  class="rounded text-[#2481cc]"
+                />
+                <span class="text-white truncate flex-1">{{ g.name }}</span>
+                <span v-if="!g.isActive" class="text-[10px] text-amber-400">inactive</span>
+                <span class="text-[10px] text-slate-500">{{ g.type }}</span>
+              </label>
+            </div>
           </div>
 
           <div>

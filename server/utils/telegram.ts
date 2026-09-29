@@ -580,6 +580,45 @@ export async function unpinChatMessage(
   }
 }
 
+// Mute a user (no sending of any kind) until `untilDate` (unix seconds).
+// Only works in supergroups where the bot is an admin with "ban users" rights.
+export async function muteChatMember(
+  token: string,
+  chatId: string,
+  userId: number,
+  untilDate: number
+): Promise<boolean> {
+  try {
+    const response = await $fetch<{ ok: boolean; result: boolean }>(
+      `https://api.telegram.org/bot${token}/restrictChatMember`,
+      {
+        method: 'POST',
+        body: {
+          chat_id: chatId,
+          user_id: userId,
+          until_date: untilDate,
+          permissions: {
+            can_send_messages: false,
+            can_send_audios: false,
+            can_send_documents: false,
+            can_send_photos: false,
+            can_send_videos: false,
+            can_send_video_notes: false,
+            can_send_voice_notes: false,
+            can_send_polls: false,
+            can_send_other_messages: false,
+            can_add_web_page_previews: false
+          }
+        }
+      }
+    )
+    return response.ok
+  } catch (error: any) {
+    const message = error.data?.description || error.message || 'Unknown error'
+    throw new Error(`Telegram Mute Member Failed: ${message}`)
+  }
+}
+
 export async function deleteMessage(
   token: string,
   chatId: string,

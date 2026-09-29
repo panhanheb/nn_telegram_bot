@@ -6,6 +6,10 @@ export interface ModerationSettings {
   deleteStickers: boolean
   deleteFiles: boolean
   blockedExtensions?: string[]
+  exemptAdmins: boolean
+  warnLimit: number
+  muteMinutes: number
+  rulesText: string
 }
 
 export const useModerationStore = defineStore('moderation', {
@@ -15,7 +19,11 @@ export const useModerationStore = defineStore('moderation', {
       deleteLinks: false,
       deleteStickers: false,
       deleteFiles: false,
-      blockedExtensions: []
+      blockedExtensions: [],
+      exemptAdmins: true,
+      warnLimit: 3,
+      muteMinutes: 60,
+      rulesText: ''
     } as ModerationSettings,
     isLoading: false
   }),
