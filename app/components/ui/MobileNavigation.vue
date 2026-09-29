@@ -19,7 +19,7 @@ const navItems = [
 </script>
 
 <template>
-  <nav class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--tf-card)] backdrop-blur-2xl border-t border-[var(--tf-border)] shadow-[0_-4px_24px_rgba(0,0,0,0.1)] flex items-center justify-around z-40 px-2 select-none">
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--tf-card)] border-t border-[var(--tf-border)] flex items-center justify-around z-40 px-2 select-none">
     <button
       v-for="item in navItems"
       :key="item.id"

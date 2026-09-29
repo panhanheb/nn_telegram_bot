@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDashboardStore } from '../stores/dashboard'
 import { useBotStore } from '../stores/bot'
 import { useGroupsStore } from '../stores/groups'
+import { useSchedulesStore } from '../stores/schedules'
+import { useAiStore } from '../stores/ai'
+import { useModerationStore } from '../stores/moderation'
 import {
   Bot,
   Users,
   MessageSquare,
   Send,
   TrendingUp,
+  TrendingDown,
   Plus,
   Clock,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
-  ArrowUpRight,
-  ShieldAlert
+  BarChart3
 } from 'lucide-vue-next'
 
 const emit = defineEmits<{
@@ -26,542 +28,622 @@ const emit = defineEmits<{
 const dashboardStore = useDashboardStore()
 const botStore = useBotStore()
 const groupsStore = useGroupsStore()
+const schedulesStore = useSchedulesStore()
+const aiStore = useAiStore()
+const moderationStore = useModerationStore()
 
-const timeRemaining = ref('')
-let timer: any = null
-
-const activeTimeFilter = ref<'24H' | '7D' | '30D' | '3M' | '1Y'>('7D')
-const timeFilters = ['24H', '7D', '30D', '3M', '1Y'] as const
-
-// Interactive Chart State
-const hoveredIndex = ref<number | null>(null)
-const activeSeries = ref<'all' | 'sent' | 'received' | 'ai' | 'failed'>('all')
-
-interface ChartDataPoint {
-  label: string
-  sent: number
+// ---------------------------------------------------------------------------
+// Analytics summary (real aggregates from logs + chat history)
+// ---------------------------------------------------------------------------
+interface DayPoint {
+  date: string
   received: number
-  ai: number
-  failed: number
+  outboundDelivered: number
+  outboundFailed: number
+  moderation: number
+  aiReplies: number
+}
+interface Totals {
+  received: number
+  activeUsers: number
+  outboundDelivered: number
+  outboundFailed: number
+  moderation: number
+  aiReplies: number
+}
+interface Summary {
+  days: number
+  totals: Totals
+  previousTotals: Record<keyof Totals, number | null>
+  series: DayPoint[]
 }
 
-const chartDatasets = computed<Record<string, ChartDataPoint[]>>(() => ({
-  '24H': [
-    { label: '00:00', sent: 320, received: 140, ai: 85, failed: 2 },
-    { label: '04:00', sent: 120, received: 60, ai: 30, failed: 0 },
-    { label: '08:00', sent: 890, received: 450, ai: 240, failed: 4 },
-    { label: '12:00', sent: 1420, received: 720, ai: 410, failed: 8 },
-    { label: '16:00', sent: 1850, received: 910, ai: 540, failed: 6 },
-    { label: '20:00', sent: 1210, received: 680, ai: 380, failed: 3 }
-  ],
-  '7D': [
-    { label: 'Mon', sent: 14200, received: 8400, ai: 4200, failed: 45 },
-    { label: 'Tue', sent: 16800, received: 9800, ai: 5100, failed: 38 },
-    { label: 'Wed', sent: 19400, received: 11200, ai: 5900, failed: 52 },
-    { label: 'Thu', sent: 18100, received: 10400, ai: 5400, failed: 41 },
-    { label: 'Fri', sent: 22400, received: 13100, ai: 6800, failed: 60 },
-    { label: 'Sat', sent: 15300, received: 9100, ai: 4600, failed: 32 },
-    { label: 'Sun', sent: 13900, received: 8200, ai: 4100, failed: 28 }
-  ],
-  '30D': [
-    { label: 'Week 1', sent: 84000, received: 48000, ai: 24000, failed: 210 },
-    { label: 'Week 2', sent: 98000, received: 56000, ai: 29000, failed: 245 },
-    { label: 'Week 3', sent: 112000, received: 64000, ai: 33000, failed: 280 },
-    { label: 'Week 4', sent: 128492, received: 74000, ai: 38200, failed: 310 }
-  ],
-  '3M': [
-    { label: 'Month 1', sent: 320000, received: 190000, ai: 95000, failed: 850 },
-    { label: 'Month 2', sent: 390000, received: 230000, ai: 115000, failed: 920 },
-    { label: 'Month 3', sent: 485000, received: 285000, ai: 142000, failed: 1100 }
-  ],
-  '1Y': [
-    { label: 'Q1', sent: 850000, received: 510000, ai: 260000, failed: 2400 },
-    { label: 'Q2', sent: 1120000, received: 680000, ai: 340000, failed: 2900 },
-    { label: 'Q3', sent: 1450000, received: 890000, ai: 450000, failed: 3800 },
-    { label: 'Q4', sent: 1890000, received: 1150000, ai: 580000, failed: 4500 }
-  ]
-}))
+const rangeOptions = [
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 }
+] as const
+const rangeDays = ref<number>(7)
+const summary = ref<Summary | null>(null)
+const summaryLoading = ref(true)
+const summaryError = ref(false)
 
-const currentChartData = computed(() => chartDatasets.value[activeTimeFilter.value])
+const fetchSummary = async () => {
+  summaryLoading.value = true
+  summaryError.value = false
+  try {
+    summary.value = await $fetch<Summary>('/api/analytics/summary', {
+      query: { days: rangeDays.value, tz: new Date().getTimezoneOffset() }
+    })
+  } catch (error) {
+    console.error('Failed to fetch analytics summary:', error)
+    summaryError.value = true
+  } finally {
+    summaryLoading.value = false
+  }
+}
 
-// Compute max for SVG scaling
-const maxDataValue = computed(() => {
-  const values = currentChartData.value.flatMap(d => [d.sent, d.received, d.ai])
-  return Math.max(...values, 100) * 1.15
+const setRange = (days: number) => {
+  if (rangeDays.value === days) return
+  rangeDays.value = days
+  fetchSummary()
+}
+
+const fmt = (n: number) => n.toLocaleString()
+
+// Percentage change vs. the previous period, only when that period is fully
+// covered by stored history and non-zero.
+const trendFor = (key: keyof Totals) => {
+  const s = summary.value
+  if (!s) return null
+  const prev = s.previousTotals[key]
+  if (prev === null || prev === 0) return null
+  const change = ((s.totals[key] - prev) / prev) * 100
+  return { value: Math.abs(change).toFixed(1), up: change >= 0 }
+}
+
+const deliveryRate = computed(() => {
+  const t = summary.value?.totals
+  if (!t) return null
+  const attempts = t.outboundDelivered + t.outboundFailed
+  if (attempts === 0) return null
+  return Math.round((t.outboundDelivered / attempts) * 1000) / 10
 })
 
-// Generate SVG points string for polyline/polygon
-const getPoints = (seriesKey: 'sent' | 'received' | 'ai' | 'failed') => {
-  const data = currentChartData.value
-  const width = 600
-  const height = 180
-  const paddingX = 20
-  const paddingY = 20
-  const availableWidth = width - paddingX * 2
-  const availableHeight = height - paddingY * 2
+// ---------------------------------------------------------------------------
+// Activity chart
+// ---------------------------------------------------------------------------
+type SeriesKey = 'received' | 'outboundDelivered' | 'aiReplies' | 'moderation'
+const seriesOptions: { key: SeriesKey; label: string; color: string }[] = [
+  { key: 'received', label: 'Messages received', color: 'bg-[#2481cc]' },
+  { key: 'outboundDelivered', label: 'Messages delivered', color: 'bg-emerald-500' },
+  { key: 'aiReplies', label: 'AI replies', color: 'bg-violet-500' },
+  { key: 'moderation', label: 'Moderation actions', color: 'bg-rose-500' }
+]
+const activeSeries = ref<SeriesKey>('received')
+const activeSeriesMeta = computed(() => seriesOptions.find(s => s.key === activeSeries.value)!)
+const hoveredIndex = ref<number | null>(null)
 
-  return data.map((d, i) => {
-    const x = paddingX + (i / (data.length - 1)) * availableWidth
-    const y = height - paddingY - (d[seriesKey] / maxDataValue.value) * availableHeight
-    return `${x},${y}`
-  }).join(' ')
+const chartData = computed(() => summary.value?.series ?? [])
+const chartMax = computed(() => Math.max(0, ...chartData.value.map(d => d[activeSeries.value])))
+const seriesTotal = computed(() => summary.value ? summary.value.totals[activeSeries.value] : 0)
+const hasAnyActivity = computed(() => {
+  const t = summary.value?.totals
+  return !!t && (t.received + t.outboundDelivered + t.outboundFailed + t.aiReplies + t.moderation) > 0
+})
+
+const dayLabel = (iso: string, long = false) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return long
+    ? date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+    : rangeDays.value <= 7
+      ? date.toLocaleDateString(undefined, { weekday: 'short' })
+      : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+// Show every label for 7 days, roughly every 5th for 30 days.
+const showTick = (i: number) => rangeDays.value <= 7 || i % 5 === 0 || i === chartData.value.length - 1
 
-const getAreaPoints = (seriesKey: 'sent' | 'received' | 'ai' | 'failed') => {
-  const data = currentChartData.value
-  const width = 600
-  const height = 180
-  const paddingX = 20
-  const paddingY = 20
-  const availableWidth = width - paddingX * 2
-  const availableHeight = height - paddingY * 2
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+})
 
-  const linePoints = data.map((d, i) => {
-    const x = paddingX + (i / (data.length - 1)) * availableWidth
-    const y = height - paddingY - (d[seriesKey] / maxDataValue.value) * availableHeight
-    return `${x},${y}`
-  })
+const botStatus = computed(() => {
+  if (!botStore.isConfigured) return { label: 'Not connected', cls: 'text-slate-400', dot: 'bg-slate-500' }
+  if (botStore.isOnline) return { label: 'Online', cls: 'text-emerald-400', dot: 'bg-emerald-500' }
+  return { label: 'Offline', cls: 'text-amber-400', dot: 'bg-amber-500' }
+})
 
-  const firstX = paddingX
-  const lastX = paddingX + availableWidth
-  const bottomY = height - paddingY
+const activeGroupsCount = computed(() => groupsStore.groups.filter(g => g.isActive).length)
 
-  return `${firstX},${bottomY} ${linePoints.join(' ')} ${lastX},${bottomY}`
-}
+// ---------------------------------------------------------------------------
+// Upcoming broadcast (schedules carry a server-computed nextRunAt)
+// ---------------------------------------------------------------------------
+const now = ref(Date.now())
+let timer: ReturnType<typeof setInterval> | null = null
+let refetchPending = false
 
-const calculateCountdown = () => {
-  const next = dashboardStore.stats.nextSchedule
-  if (!next) {
-    timeRemaining.value = 'No active schedules'
-    return
+const nextSchedule = computed(() => {
+  const upcoming = schedulesStore.schedules
+    .filter(s => s.isActive && s.nextRunAt)
+    .map(s => ({ s, t: new Date(s.nextRunAt as string).getTime() }))
+    .filter(x => Number.isFinite(x.t))
+    .sort((a, b) => a.t - b.t)
+  return upcoming[0]?.s ?? null
+})
+
+const timeRemaining = computed(() => {
+  const next = nextSchedule.value
+  if (!next?.nextRunAt) return ''
+  const diff = new Date(next.nextRunAt).getTime() - now.value
+  if (diff <= 0) return 'Sending now'
+
+  const days = Math.floor(diff / 86_400_000)
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000)
+  const minutes = Math.floor((diff % 3_600_000) / 60_000)
+  const seconds = Math.floor((diff % 60_000) / 1000)
+  if (days > 0) return `in ${days}d ${hours}h`
+  if (hours > 0) return `in ${hours}h ${minutes}m`
+  if (minutes > 0) return `in ${minutes}m ${seconds}s`
+  return `in ${seconds}s`
+})
+
+const nextRunLabel = computed(() => {
+  const at = nextSchedule.value?.nextRunAt
+  if (!at) return ''
+  return new Date(at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+})
+
+const destinationLabel = computed(() => {
+  const ids = nextSchedule.value?.targetGroupIds
+  if (!ids || ids.length === 0) {
+    return `All active groups (${activeGroupsCount.value})`
   }
+  return `${ids.length} ${ids.length === 1 ? 'group' : 'groups'}`
+})
 
-  const execTime = new Date(next.execTime).getTime()
-  const now = new Date().getTime()
-  const diff = execTime - now
-
-  if (diff <= 0) {
-    timeRemaining.value = 'Processing...'
-    setTimeout(() => {
-      dashboardStore.fetchStats()
-    }, 3000)
-    return
+const tick = () => {
+  now.value = Date.now()
+  const at = nextSchedule.value?.nextRunAt
+  // Once the run time passes, refresh once so nextRunAt / lastDelivery update.
+  if (at && new Date(at).getTime() <= now.value && !refetchPending) {
+    refetchPending = true
+    setTimeout(async () => {
+      await Promise.all([schedulesStore.fetchSchedules(), dashboardStore.fetchStats()])
+      refetchPending = false
+    }, 5000)
   }
-
-  const hours = Math.floor(diff / (1000 * 60 * 60))
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-
-  const parts = []
-  if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0 || hours > 0) parts.push(`${minutes}m`)
-  parts.push(`${seconds}s`)
-
-  timeRemaining.value = parts.join(' ')
 }
 
-onMounted(() => {
+// ---------------------------------------------------------------------------
+// Automation status (real settings + Telegram webhook info)
+// ---------------------------------------------------------------------------
+const webhook = ref<{ configured: boolean; lastError: string | null; pendingUpdateCount: number } | null>(null)
+const webhookLoading = ref(true)
+
+const fetchWebhook = async () => {
+  webhookLoading.value = true
+  try {
+    webhook.value = await $fetch<any>('/api/telegram/webhook')
+  } catch {
+    webhook.value = null
+  } finally {
+    webhookLoading.value = false
+  }
+}
+
+const automationItems = computed(() => {
+  const wh = webhook.value
+  const webhookState = !botStore.isConfigured
+    ? { value: 'No bot', cls: 'text-slate-400' }
+    : webhookLoading.value
+      ? { value: 'Checking…', cls: 'text-slate-400' }
+      : !wh
+        ? { value: 'Unknown', cls: 'text-slate-400' }
+        : !wh.configured
+          ? { value: 'Not set', cls: 'text-amber-400' }
+          : wh.lastError
+            ? { value: 'Error', cls: 'text-rose-400' }
+            : { value: 'Connected', cls: 'text-emerald-400' }
+
+  const ai = aiStore.settings
+  const aiState = !ai.enabled
+    ? { value: 'Off', cls: 'text-slate-400' }
+    : ai.keyConfigured === false
+      ? { value: 'No API key', cls: 'text-amber-400' }
+      : { value: 'On', cls: 'text-emerald-400' }
+
+  const mod = moderationStore.settings
+  const modState = mod.enabled
+    ? { value: 'On', cls: 'text-emerald-400' }
+    : { value: 'Off', cls: 'text-slate-400' }
+
+  return [
+    { label: 'Webhook', tab: 'bots', ...webhookState, detail: wh?.lastError || null },
+    { label: 'AI replies', tab: 'ai', ...aiState, detail: null },
+    { label: 'Moderation', tab: 'moderation', ...modState, detail: null }
+  ]
+})
+
+const automationOverall = computed(() => {
+  if (!botStore.isConfigured) return { label: 'Setup needed', cls: 'bg-white/5 text-slate-400 border-white/10' }
+  const hasProblem = automationItems.value.some(i => i.cls.includes('rose') || i.cls.includes('amber')) || !botStore.isOnline
+  return hasProblem
+    ? { label: 'Needs attention', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' }
+    : { label: 'Operational', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
+})
+
+onMounted(async () => {
   dashboardStore.fetchStats()
-  botStore.fetchBot()
   groupsStore.fetchGroups()
-  timer = setInterval(calculateCountdown, 1000)
+  schedulesStore.fetchSchedules()
+  aiStore.fetchSettings()
+  moderationStore.fetchSettings()
+  fetchSummary()
+  timer = setInterval(tick, 1000)
+  await botStore.fetchBot()
+  if (botStore.isConfigured) fetchWebhook()
+  else webhookLoading.value = false
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
-
-watch(() => dashboardStore.stats.nextSchedule, calculateCountdown)
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Header Greeting with Add Bot Button -->
+    <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          Good morning, Admin 👋
-        </h2>
-        <p class="text-xs text-slate-400 mt-1">
-          Manage your Telegram automation from one place.
+        <h2 class="text-xl font-semibold text-white">{{ greeting }}</h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Here's what your bot has been doing.
         </p>
       </div>
 
       <button
         type="button"
         @click="emit('open-add-bot')"
-        class="tf-btn-primary px-4 py-2.5 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto shadow-sm"
+        class="tf-btn-primary px-3.5 py-2 text-sm flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto"
       >
-        <Plus class="w-4 h-4" />
-        <span>+ Add Bot</span>
+        <Plus v-if="!botStore.isConfigured" class="w-4 h-4" />
+        <Bot v-else class="w-4 h-4" />
+        <span>{{ botStore.isConfigured ? 'Manage bot' : 'Add bot' }}</span>
       </button>
     </div>
 
-    <!-- 4 Key Statistics Cards -->
+    <!-- Key statistics -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- 1. Active Bots -->
-      <div
+      <!-- Bot -->
+      <button
+        type="button"
         @click="emit('navigate', 'bots')"
-        class="tf-card tf-card-interactive p-5 cursor-pointer relative overflow-hidden group"
+        class="tf-card tf-card-interactive p-5 text-left cursor-pointer"
       >
         <div class="flex items-center justify-between">
-          <div class="p-2.5 rounded-lg bg-sky-500/10 text-[#2481cc] border border-sky-500/20">
-            <Bot class="w-5 h-5" />
+          <div class="p-2 rounded-lg bg-sky-500/10 text-[#2481cc]">
+            <Bot class="w-4 h-4" />
           </div>
-          <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-            <TrendingUp class="w-3.5 h-3.5" />
-            ↑ 8.2%
+          <span class="inline-flex items-center gap-1.5 text-xs font-medium" :class="botStatus.cls">
+            <span class="w-1.5 h-1.5 rounded-full" :class="botStatus.dot"></span>
+            {{ botStatus.label }}
           </span>
         </div>
-        <div class="mt-4">
-          <p class="text-xs font-medium text-slate-400">Active Bots</p>
-          <div class="flex items-baseline gap-2 mt-1">
-            <h3 class="text-2xl font-bold text-white">
-              {{ botStore.isConfigured ? '1' : '12' }}
-            </h3>
-            <span class="text-[11px] text-emerald-400 font-medium">● 100% online</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1 truncate">
-            {{ botStore.bot ? `@${botStore.bot.username}` : '12 connected instances' }}
-          </p>
-        </div>
-      </div>
+        <p class="text-sm text-slate-400 mt-4">Bot</p>
+        <p class="text-lg font-semibold text-white mt-1 truncate">
+          {{ botStore.bot ? `@${botStore.bot.username}` : 'No bot connected' }}
+        </p>
+        <p class="text-xs text-slate-400 mt-1 truncate">
+          {{ botStore.bot ? botStore.bot.firstName : 'Add a bot token to get started' }}
+        </p>
+      </button>
 
-      <!-- 2. Groups -->
-      <div
+      <!-- Groups -->
+      <button
+        type="button"
         @click="emit('navigate', 'groups')"
-        class="tf-card tf-card-interactive p-5 cursor-pointer relative overflow-hidden group"
+        class="tf-card tf-card-interactive p-5 text-left cursor-pointer"
       >
         <div class="flex items-center justify-between">
-          <div class="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Users class="w-5 h-5" />
+          <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+            <Users class="w-4 h-4" />
           </div>
-          <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-            <TrendingUp class="w-3.5 h-3.5" />
-            ↑ 12.4%
-          </span>
         </div>
-        <div class="mt-4">
-          <p class="text-xs font-medium text-slate-400">Groups</p>
-          <div class="flex items-baseline gap-2 mt-1">
-            <h3 class="text-2xl font-bold text-white">
-              {{ dashboardStore.stats.totalGroups > 0 ? dashboardStore.stats.totalGroups : 48 }}
-            </h3>
-            <span class="text-[11px] text-slate-400 font-normal">communities</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            Reaching ~48.2K total members
-          </p>
-        </div>
-      </div>
+        <p class="text-sm text-slate-400 mt-4">Groups</p>
+        <p class="text-2xl font-bold text-white mt-1 tabular-nums">
+          {{ fmt(dashboardStore.stats.totalGroups) }}
+        </p>
+        <p class="text-xs text-slate-400 mt-1 tabular-nums">
+          {{ fmt(dashboardStore.stats.totalChannels) }} {{ dashboardStore.stats.totalChannels === 1 ? 'channel' : 'channels' }}
+          · {{ fmt(activeGroupsCount) }} active
+        </p>
+      </button>
 
-      <!-- 3. Messages -->
-      <div
+      <!-- Messages received -->
+      <button
+        type="button"
         @click="emit('navigate', 'chat')"
-        class="tf-card tf-card-interactive p-5 cursor-pointer relative overflow-hidden group"
+        class="tf-card tf-card-interactive p-5 text-left cursor-pointer"
       >
         <div class="flex items-center justify-between">
-          <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <MessageSquare class="w-5 h-5" />
+          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <MessageSquare class="w-4 h-4" />
           </div>
-          <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-            <TrendingUp class="w-3.5 h-3.5" />
-            ↑ 18.6%
+          <span
+            v-if="trendFor('received')"
+            class="inline-flex items-center gap-1 text-xs font-medium tabular-nums"
+            :class="trendFor('received')!.up ? 'text-emerald-400' : 'text-rose-400'"
+            :title="`Compared with the previous ${rangeDays} days`"
+          >
+            <component :is="trendFor('received')!.up ? TrendingUp : TrendingDown" class="w-3.5 h-3.5" />
+            {{ trendFor('received')!.value }}%
           </span>
         </div>
-        <div class="mt-4">
-          <p class="text-xs font-medium text-slate-400">Messages</p>
-          <div class="flex items-baseline gap-2 mt-1">
-            <h3 class="text-2xl font-bold text-white">128,492</h3>
-            <span class="text-[11px] text-slate-400 font-normal">processed</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            {{ dashboardStore.stats.messagesSent || 342 }} outbound broadcasts
-          </p>
-        </div>
-      </div>
+        <p class="text-sm text-slate-400 mt-4">Messages received</p>
+        <p class="text-2xl font-bold text-white mt-1 tabular-nums">
+          <span v-if="summaryLoading && !summary" class="text-slate-500">—</span>
+          <template v-else>{{ fmt(summary?.totals.received ?? 0) }}</template>
+        </p>
+        <p class="text-xs text-slate-400 mt-1 tabular-nums">
+          Last {{ rangeDays }} days · {{ fmt(summary?.totals.activeUsers ?? 0) }} active {{ summary?.totals.activeUsers === 1 ? 'member' : 'members' }}
+        </p>
+      </button>
 
-      <!-- 4. Broadcasts -->
-      <div
+      <!-- Deliveries -->
+      <button
+        type="button"
         @click="emit('navigate', 'broadcasts')"
-        class="tf-card tf-card-interactive p-5 cursor-pointer relative overflow-hidden group"
+        class="tf-card tf-card-interactive p-5 text-left cursor-pointer"
       >
         <div class="flex items-center justify-between">
-          <div class="p-2.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Send class="w-5 h-5" />
+          <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+            <Send class="w-4 h-4" />
           </div>
-          <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-            <TrendingUp class="w-3.5 h-3.5" />
-            ↑ 6.8%
+          <span
+            v-if="trendFor('outboundDelivered')"
+            class="inline-flex items-center gap-1 text-xs font-medium tabular-nums"
+            :class="trendFor('outboundDelivered')!.up ? 'text-emerald-400' : 'text-rose-400'"
+            :title="`Compared with the previous ${rangeDays} days`"
+          >
+            <component :is="trendFor('outboundDelivered')!.up ? TrendingUp : TrendingDown" class="w-3.5 h-3.5" />
+            {{ trendFor('outboundDelivered')!.value }}%
           </span>
         </div>
-        <div class="mt-4">
-          <p class="text-xs font-medium text-slate-400">Broadcasts</p>
-          <div class="flex items-baseline gap-2 mt-1">
-            <h3 class="text-2xl font-bold text-white">1,284</h3>
-            <span class="text-[11px] text-slate-400 font-normal">dispatched</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            99.4% delivery success rate
-          </p>
-        </div>
-      </div>
+        <p class="text-sm text-slate-400 mt-4">Messages delivered</p>
+        <p class="text-2xl font-bold text-white mt-1 tabular-nums">
+          <span v-if="summaryLoading && !summary" class="text-slate-500">—</span>
+          <template v-else>{{ fmt(summary?.totals.outboundDelivered ?? 0) }}</template>
+        </p>
+        <p class="text-xs mt-1 tabular-nums" :class="summary && summary.totals.outboundFailed > 0 ? 'text-amber-400' : 'text-slate-400'">
+          <template v-if="deliveryRate !== null">
+            {{ deliveryRate }}% success · {{ fmt(summary!.totals.outboundFailed) }} failed
+          </template>
+          <template v-else>No sends in the last {{ rangeDays }} days</template>
+        </p>
+      </button>
     </div>
 
-    <!-- Message Analytics Interactive Chart -->
-    <div class="tf-card p-5 sm:p-6 space-y-6">
+    <!-- Activity chart -->
+    <div class="tf-card p-5 sm:p-6 space-y-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 class="text-base font-bold text-white tracking-tight">Message Analytics</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Comprehensive inbound, outbound, and AI response volume</p>
+          <h3 class="text-base font-semibold text-white">Activity</h3>
+          <p class="text-sm text-slate-400 mt-0.5">Daily totals from your bot's message history and logs</p>
         </div>
 
-        <!-- Time Range Filters -->
-        <div class="flex items-center rounded-lg bg-white/[0.04] p-1 border border-white/5 gap-1 self-start sm:self-auto">
+        <div class="flex items-center rounded-lg bg-white/[0.04] p-1 border border-white/10 gap-1 self-start sm:self-auto">
           <button
-            v-for="tf in timeFilters"
-            :key="tf"
+            v-for="opt in rangeOptions"
+            :key="opt.days"
             type="button"
-            @click="activeTimeFilter = tf"
-            class="px-2.5 py-1 text-xs rounded-md transition-all font-medium cursor-pointer"
-            :class="activeTimeFilter === tf
-              ? 'bg-[#2481cc] text-white font-semibold shadow-sm'
-              : 'text-slate-400 hover:text-white'"
+            @click="setRange(opt.days)"
+            class="px-2.5 py-1 text-xs rounded-md font-medium cursor-pointer transition-colors"
+            :class="rangeDays === opt.days ? 'bg-[#2481cc] text-white' : 'text-slate-400 hover:text-white'"
           >
-            {{ tf }}
+            {{ opt.label }}
           </button>
         </div>
       </div>
 
-      <!-- Series Legend & Quick Filters -->
-      <div class="flex flex-wrap items-center gap-4 text-xs">
+      <!-- Series selector -->
+      <div class="flex flex-wrap items-center gap-2">
         <button
-          @click="activeSeries = 'all'"
-          class="flex items-center gap-2 cursor-pointer transition-opacity"
-          :class="activeSeries === 'all' ? 'opacity-100 font-semibold' : 'opacity-60 hover:opacity-100'"
+          v-for="s in seriesOptions"
+          :key="s.key"
+          type="button"
+          @click="activeSeries = s.key"
+          class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-xs cursor-pointer border transition-colors"
+          :class="activeSeries === s.key
+            ? 'border-white/10 bg-white/5 text-white font-medium'
+            : 'border-transparent text-slate-400 hover:text-white'"
         >
-          <span class="w-2.5 h-2.5 rounded-full bg-[#2481cc]"></span>
-          <span class="text-slate-200">All Metrics</span>
-        </button>
-
-        <button
-          @click="activeSeries = 'sent'"
-          class="flex items-center gap-2 cursor-pointer transition-opacity"
-          :class="activeSeries === 'sent' ? 'opacity-100 font-semibold' : 'opacity-60 hover:opacity-100'"
-        >
-          <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
-          <span class="text-slate-200">Messages Sent</span>
-        </button>
-
-        <button
-          @click="activeSeries = 'received'"
-          class="flex items-center gap-2 cursor-pointer transition-opacity"
-          :class="activeSeries === 'received' ? 'opacity-100 font-semibold' : 'opacity-60 hover:opacity-100'"
-        >
-          <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
-          <span class="text-slate-200">Messages Received</span>
-        </button>
-
-        <button
-          @click="activeSeries = 'ai'"
-          class="flex items-center gap-2 cursor-pointer transition-opacity"
-          :class="activeSeries === 'ai' ? 'opacity-100 font-semibold' : 'opacity-60 hover:opacity-100'"
-        >
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-          <span class="text-slate-200">AI Replies</span>
-        </button>
-
-        <button
-          @click="activeSeries = 'failed'"
-          class="flex items-center gap-2 cursor-pointer transition-opacity"
-          :class="activeSeries === 'failed' ? 'opacity-100 font-semibold' : 'opacity-60 hover:opacity-100'"
-        >
-          <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
-          <span class="text-slate-200">Failed</span>
+          <span class="w-2 h-2 rounded-full" :class="s.color"></span>
+          {{ s.label }}
+          <span class="tabular-nums text-slate-400">{{ summary ? fmt(summary.totals[s.key]) : '—' }}</span>
         </button>
       </div>
 
-      <!-- Interactive SVG Chart Canvas -->
-      <div class="relative w-full h-56 select-none">
-        <svg viewBox="0 0 600 180" class="w-full h-full overflow-visible" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="tf-gradient-sent" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#2481cc" stop-opacity="0.3" />
-              <stop offset="100%" stop-color="#2481cc" stop-opacity="0.0" />
-            </linearGradient>
-            <linearGradient id="tf-gradient-ai" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#10b981" stop-opacity="0.25" />
-              <stop offset="100%" stop-color="#10b981" stop-opacity="0.0" />
-            </linearGradient>
-          </defs>
+      <!-- Loading -->
+      <div v-if="summaryLoading && !summary" class="h-56 flex items-center justify-center text-sm text-slate-400">
+        Loading activity…
+      </div>
 
-          <!-- Horizontal Grid Lines -->
-          <line x1="20" y1="20" x2="580" y2="20" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" />
-          <line x1="20" y1="65" x2="580" y2="65" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" />
-          <line x1="20" y1="110" x2="580" y2="110" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" />
-          <line x1="20" y1="160" x2="580" y2="160" stroke="rgba(255,255,255,0.08)" />
+      <!-- Error -->
+      <div v-else-if="summaryError && !summary" class="h-56 flex flex-col items-center justify-center gap-2 text-center">
+        <AlertCircle class="w-5 h-5 text-rose-400" />
+        <p class="text-sm text-white">Couldn't load activity</p>
+        <button type="button" class="tf-btn-secondary px-3 py-1.5 text-xs cursor-pointer" @click="fetchSummary">Try again</button>
+      </div>
 
-          <!-- Filled Area for Sent -->
-          <polygon
-            v-if="activeSeries === 'all' || activeSeries === 'sent'"
-            :points="getAreaPoints('sent')"
-            fill="url(#tf-gradient-sent)"
-            class="transition-all duration-300"
-          />
+      <!-- Empty -->
+      <div v-else-if="!hasAnyActivity" class="h-56 flex flex-col items-center justify-center gap-2 text-center px-6">
+        <BarChart3 class="w-5 h-5 text-slate-400" />
+        <p class="text-sm font-medium text-white">No activity yet</p>
+        <p class="text-xs text-slate-400 max-w-sm">
+          Add the bot to a group and send a message or a broadcast. Activity from the last {{ rangeDays }} days will show up here.
+        </p>
+      </div>
 
-          <!-- Filled Area for AI -->
-          <polygon
-            v-if="activeSeries === 'all' || activeSeries === 'ai'"
-            :points="getAreaPoints('ai')"
-            fill="url(#tf-gradient-ai)"
-            class="transition-all duration-300"
-          />
-
-          <!-- Line: Sent Messages -->
-          <polyline
-            v-if="activeSeries === 'all' || activeSeries === 'sent'"
-            :points="getPoints('sent')"
-            fill="none"
-            stroke="#2481cc"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="transition-all duration-300"
-          />
-
-          <!-- Line: Received Messages -->
-          <polyline
-            v-if="activeSeries === 'all' || activeSeries === 'received'"
-            :points="getPoints('received')"
-            fill="none"
-            stroke="#818cf8"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="transition-all duration-300"
-          />
-
-          <!-- Line: AI Replies -->
-          <polyline
-            v-if="activeSeries === 'all' || activeSeries === 'ai'"
-            :points="getPoints('ai')"
-            fill="none"
-            stroke="#10b981"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="transition-all duration-300"
-          />
-
-          <!-- Data Points with Hover Interaction -->
-          <g v-for="(point, idx) in currentChartData" :key="idx">
-            <circle
-              v-if="activeSeries === 'all' || activeSeries === 'sent'"
-              :cx="20 + (idx / (currentChartData.length - 1)) * 560"
-              :cy="160 - (point.sent / maxDataValue) * 140"
-              r="4"
-              class="fill-[#2481cc] stroke-[var(--tf-card)] stroke-2 hover:r-6 cursor-pointer transition-all"
-              @mouseenter="hoveredIndex = idx"
-              @mouseleave="hoveredIndex = null"
-            />
-          </g>
-        </svg>
-
-        <!-- X Axis Labels -->
-        <div class="flex justify-between px-4 mt-2 text-[10px] text-slate-400 font-mono">
-          <span v-for="d in currentChartData" :key="d.label">{{ d.label }}</span>
+      <!-- Bars -->
+      <div v-else class="relative" :class="summaryLoading ? 'opacity-60' : ''">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <span>{{ activeSeriesMeta.label }} per day</span>
+          <span class="tabular-nums">Peak {{ fmt(chartMax) }}</span>
         </div>
 
-        <!-- Hover Tooltip Popup -->
-        <div
-          v-if="hoveredIndex !== null"
-          class="absolute top-2 left-1/2 transform -translate-x-1/2 bg-[var(--tf-card-elevated)] border border-[var(--tf-border)] rounded-lg px-3 py-2 shadow-md text-xs z-30 pointer-events-none flex items-center gap-4"
-        >
-          <div class="font-bold text-white">{{ currentChartData[hoveredIndex].label }}</div>
-          <div class="flex items-center gap-3 text-[11px]">
-            <span class="text-[#2481cc]">Sent: <strong>{{ currentChartData[hoveredIndex].sent.toLocaleString() }}</strong></span>
-            <span class="text-indigo-400">Recv: <strong>{{ currentChartData[hoveredIndex].received.toLocaleString() }}</strong></span>
-            <span class="text-emerald-400">AI: <strong>{{ currentChartData[hoveredIndex].ai.toLocaleString() }}</strong></span>
+        <div class="h-48 flex items-end gap-[3px] sm:gap-1 border-b border-white/10" @mouseleave="hoveredIndex = null">
+          <div
+            v-for="(d, i) in chartData"
+            :key="d.date"
+            class="flex-1 h-full flex items-end cursor-default"
+            @mouseenter="hoveredIndex = i"
+          >
+            <div
+              class="w-full rounded-t-sm transition-opacity"
+              :class="[activeSeriesMeta.color, hoveredIndex === null || hoveredIndex === i ? 'opacity-100' : 'opacity-50']"
+              :style="{ height: chartMax > 0 && d[activeSeries] > 0 ? `${Math.max(2, (d[activeSeries] / chartMax) * 100)}%` : '0%' }"
+            ></div>
           </div>
         </div>
+
+        <div class="flex gap-[3px] sm:gap-1 mt-2">
+          <span
+            v-for="(d, i) in chartData"
+            :key="d.date"
+            class="flex-1 text-center text-[11px] text-slate-400 whitespace-nowrap overflow-visible"
+          >
+            {{ showTick(i) ? dayLabel(d.date) : '' }}
+          </span>
+        </div>
+
+        <!-- Hover details -->
+        <div
+          v-if="hoveredIndex !== null && chartData[hoveredIndex]"
+          class="absolute top-6 right-0 tf-card-elevated px-3 py-2 text-xs pointer-events-none z-10 space-y-1 min-w-[180px]"
+        >
+          <p class="font-medium text-white">{{ dayLabel(chartData[hoveredIndex].date, true) }}</p>
+          <div
+            v-for="s in seriesOptions"
+            :key="s.key"
+            class="flex items-center justify-between gap-4"
+          >
+            <span class="inline-flex items-center gap-1.5 text-slate-400">
+              <span class="w-1.5 h-1.5 rounded-full" :class="s.color"></span>{{ s.label }}
+            </span>
+            <span class="tabular-nums text-white">{{ fmt(chartData[hoveredIndex][s.key]) }}</span>
+          </div>
+          <div v-if="chartData[hoveredIndex].outboundFailed > 0" class="flex items-center justify-between gap-4">
+            <span class="text-rose-400">Failed sends</span>
+            <span class="tabular-nums text-rose-400">{{ fmt(chartData[hoveredIndex].outboundFailed) }}</span>
+          </div>
+        </div>
+
+        <p class="sr-only">{{ activeSeriesMeta.label }}: {{ fmt(seriesTotal) }} in the last {{ rangeDays }} days.</p>
       </div>
     </div>
 
-    <!-- Upcoming Broadcast & System Audit Mini-Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      <!-- Left: Next Scheduled Broadcast Countdown -->
-      <div class="lg:col-span-6 tf-card p-5 space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+    <!-- Upcoming broadcast & automation -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <!-- Upcoming broadcast -->
+      <div class="tf-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
               <Clock class="w-4 h-4" />
             </div>
             <div>
-              <h4 class="text-sm font-bold text-white">Upcoming Broadcast</h4>
-              <p class="text-[11px] text-slate-400">Scheduled automated delivery</p>
+              <h4 class="text-sm font-semibold text-white">Upcoming broadcast</h4>
+              <p class="text-xs text-slate-400">Next scheduled delivery</p>
             </div>
           </div>
-
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+          <span v-if="nextSchedule" class="tf-pill px-2 py-0.5 text-slate-300 tabular-nums">
             {{ timeRemaining }}
           </span>
         </div>
 
-        <div class="p-3.5 rounded-lg bg-white/[0.02] border border-white/5 space-y-2">
-          <div class="flex items-center justify-between">
-            <p class="text-xs font-semibold text-white truncate">
-              {{ dashboardStore.stats.nextSchedule?.title || 'Daily Morning Digest' }}
-            </p>
-            <span class="text-[10px] text-slate-400 font-mono">
-              {{ dashboardStore.stats.nextSchedule?.time || '08:00 AM' }}
-            </span>
+        <div v-if="schedulesStore.isLoading && schedulesStore.schedules.length === 0" class="py-6 text-center text-sm text-slate-400">
+          Loading schedules…
+        </div>
+
+        <div v-else-if="nextSchedule" class="tf-card-subtle p-3.5 space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-medium text-white truncate">{{ nextSchedule.title }}</p>
+            <span class="text-xs text-slate-400 tabular-nums whitespace-nowrap">{{ nextRunLabel }}</span>
           </div>
-          <p class="text-[11px] text-slate-300 italic truncate">
-            "{{ dashboardStore.stats.nextSchedule?.message || 'Good morning! Here is your daily automated community briefing.' }}"
-          </p>
-          <div class="flex items-center justify-between pt-2 border-t border-white/5 text-[10px] text-slate-400">
-            <span>Destination: <strong>12 groups</strong></span>
+          <p class="text-xs text-slate-400 line-clamp-2 break-words">{{ nextSchedule.message }}</p>
+          <div class="flex items-center justify-between gap-3 pt-2 border-t border-white/10 text-xs text-slate-400">
+            <span class="truncate">
+              To {{ destinationLabel }}
+              <template v-if="nextSchedule.lastDelivery">
+                · Last run {{ nextSchedule.lastDelivery.delivered }} delivered<template v-if="nextSchedule.lastDelivery.failed">, <span class="text-rose-400">{{ nextSchedule.lastDelivery.failed }} failed</span></template>
+              </template>
+            </span>
             <button
+              type="button"
               @click="emit('navigate', 'schedules')"
-              class="text-[#2481cc] hover:underline cursor-pointer font-medium"
+              class="text-[#2481cc] hover:underline cursor-pointer font-medium whitespace-nowrap"
             >
-              View in Scheduler →
+              View schedule
             </button>
           </div>
         </div>
+
+        <div v-else class="tf-card-subtle p-4 text-center space-y-2">
+          <p class="text-sm text-white">No upcoming broadcasts</p>
+          <p class="text-xs text-slate-400">Create a schedule to send messages to your groups automatically.</p>
+          <button
+            type="button"
+            @click="emit('navigate', 'schedules')"
+            class="tf-btn-secondary px-3 py-1.5 text-xs cursor-pointer"
+          >
+            Open scheduler
+          </button>
+        </div>
       </div>
 
-      <!-- Right: System Automation Status -->
-      <div class="lg:col-span-6 tf-card p-5 space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+      <!-- Automation status -->
+      <div class="tf-card p-5 space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
               <CheckCircle2 class="w-4 h-4" />
             </div>
             <div>
-              <h4 class="text-sm font-bold text-white">Automation Engine</h4>
-              <p class="text-[11px] text-slate-400">Health & edge execution status</p>
+              <h4 class="text-sm font-semibold text-white">Automation</h4>
+              <p class="text-xs text-slate-400">Webhook and feature status</p>
             </div>
           </div>
-          <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-semibold uppercase">
-            Operational
+          <span class="px-2 py-0.5 rounded-md text-xs font-medium border" :class="automationOverall.cls">
+            {{ automationOverall.label }}
           </span>
         </div>
 
-        <div class="grid grid-cols-3 gap-3 text-center">
-          <div class="p-3 rounded-lg bg-white/[0.02] border border-white/5">
-            <p class="text-[10px] text-slate-400 uppercase font-semibold">Webhook</p>
-            <p class="text-sm font-bold text-emerald-400 mt-1">Live</p>
-          </div>
-          <div class="p-3 rounded-lg bg-white/[0.02] border border-white/5">
-            <p class="text-[10px] text-slate-400 uppercase font-semibold">Gemini AI</p>
-            <p class="text-sm font-bold text-[#2481cc] mt-1">Active</p>
-          </div>
-          <div class="p-3 rounded-lg bg-white/[0.02] border border-white/5">
-            <p class="text-[10px] text-slate-400 uppercase font-semibold">Moderation</p>
-            <p class="text-sm font-bold text-purple-400 mt-1">Shielded</p>
-          </div>
+        <div class="grid grid-cols-3 gap-3">
+          <button
+            v-for="item in automationItems"
+            :key="item.label"
+            type="button"
+            @click="emit('navigate', item.tab)"
+            class="tf-card-subtle p-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
+            :title="item.detail || undefined"
+          >
+            <p class="text-xs text-slate-400">{{ item.label }}</p>
+            <p class="text-sm font-semibold mt-1" :class="item.cls">{{ item.value }}</p>
+          </button>
         </div>
+
+        <p v-if="webhook?.lastError" class="text-xs text-rose-400 break-words">
+          Webhook error: {{ webhook.lastError }}
+        </p>
+        <p v-else-if="webhook && webhook.pendingUpdateCount > 0" class="text-xs text-slate-400 tabular-nums">
+          {{ fmt(webhook.pendingUpdateCount) }} pending {{ webhook.pendingUpdateCount === 1 ? 'update' : 'updates' }} waiting on Telegram
+        </p>
       </div>
     </div>
   </div>

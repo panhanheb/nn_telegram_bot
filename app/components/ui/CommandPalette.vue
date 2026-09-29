@@ -231,7 +231,7 @@ onUnmounted(() => {
     <!-- Backdrop -->
     <div
       @click="emit('update:open', false)"
-      class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+      class="fixed inset-0 bg-slate-950/70 transition-opacity"
     ></div>
 
     <!-- Palette Box -->
@@ -283,7 +283,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
             {{ cmd.category }}
           </span>
         </button>

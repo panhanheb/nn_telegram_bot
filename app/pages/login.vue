@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from '../composables/useToast'
-import { User, Lock, ArrowRight, Send, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-vue-next'
+import { User, Lock, Send, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-vue-next'
 import ToastList from '../components/ToastList.vue'
 
 definePageMeta({
@@ -40,52 +40,47 @@ const handleLogin = async () => {
     isLoading.value = false
   }
 }
+const isDev = import.meta.dev
 </script>
 
 <template>
   <div class="min-h-screen bg-[var(--tf-bg)] text-[var(--tf-text)] flex items-center justify-center p-4 font-sans select-none relative overflow-hidden">
-    <!-- Fluid Liquid Ambient Blooms (Refraction Backdrop) -->
-    <div class="fixed -top-28 left-1/4 w-[580px] h-[580px] bg-gradient-to-tr from-[#2481cc]/20 via-indigo-600/15 to-purple-600/10 rounded-full blur-[140px] pointer-events-none z-0 liquid-orb-1"></div>
-    <div class="fixed -bottom-28 right-1/4 w-[600px] h-[600px] bg-gradient-to-br from-cyan-500/15 via-blue-600/15 to-violet-600/10 rounded-full blur-[140px] pointer-events-none z-0 liquid-orb-2"></div>
 
     <div class="relative z-10 w-full max-w-4xl tf-card-elevated overflow-hidden grid grid-cols-1 md:grid-cols-2">
       <!-- Left: Brand Panel -->
-      <div class="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-sky-950/30 via-slate-900/40 to-slate-950/50 border-r border-[var(--tf-border)] relative">
+      <div class="hidden md:flex flex-col justify-between p-10 bg-[var(--tf-surface-subtle)] border-r border-[var(--tf-border)] relative">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-[#2481cc] flex items-center justify-center text-white shadow-sm shadow-[#2481cc]/40">
+          <div class="w-9 h-9 rounded-lg bg-[#2481cc] flex items-center justify-center text-white">
             <Send class="w-4 h-4 transform rotate-[15deg] -translate-x-0.5" />
           </div>
           <div>
-            <h1 class="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
-              TELEFLOW
-              <span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-semibold uppercase">PRO</span>
-            </h1>
-            <p class="text-[10px] text-slate-400 font-medium">Telegram Bot Orchestration</p>
+            <h1 class="text-sm font-semibold text-white">TeleFlow</h1>
+            <p class="text-[11px] text-slate-400">Telegram bot management</p>
           </div>
         </div>
 
         <div class="space-y-4">
-          <h2 class="text-2xl font-bold text-white leading-tight">
-            Next-generation Telegram bot management & broadcast orchestration.
+          <h2 class="text-2xl font-semibold text-white leading-snug max-w-xs">
+            Run your Telegram groups from one place.
           </h2>
-          <p class="text-slate-300 text-xs leading-relaxed">
-            Manage multiple bots, run automated daily broadcasting campaigns, monitor live community chats, and automate AI auto-replies from one unified dashboard.
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Schedule broadcasts, moderate chats and reply with AI.
           </p>
 
           <div class="flex items-center gap-4 text-xs text-slate-400 pt-2">
             <div class="flex items-center gap-1.5">
-              <ShieldCheck class="w-4 h-4 text-emerald-400" />
-              <span>AES-256 Encrypted</span>
+              <ShieldCheck class="w-4 h-4 text-slate-400" />
+              <span>Encrypted bot tokens</span>
             </div>
             <div class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span>Edge Ready</span>
+              <span class="w-2 h-2 rounded-full bg-[#2481cc]"></span>
+              <span>Cloudflare Workers</span>
             </div>
           </div>
         </div>
 
-        <div class="text-[10px] text-slate-400 font-mono">
-          &copy; 2026 TeleFlow Pro Edition. All rights reserved.
+        <div class="text-[11px] text-slate-500">
+          &copy; {{ new Date().getFullYear() }} TeleFlow
         </div>
       </div>
 
@@ -97,39 +92,39 @@ const handleLogin = async () => {
             <Send class="w-3.5 h-3.5 transform rotate-[15deg] -translate-x-0.5" />
           </div>
           <div>
-            <h1 class="text-xs font-bold text-white tracking-tight">TELEFLOW PRO</h1>
+            <h1 class="text-sm font-semibold text-white">TeleFlow</h1>
           </div>
         </div>
 
         <div class="mb-6">
-          <h3 class="text-xl font-bold text-white">Welcome back</h3>
-          <p class="text-xs text-slate-400 mt-1">Sign in to your administration panel</p>
+          <h3 class="text-xl font-semibold text-white">Sign in</h3>
+          <p class="text-sm text-slate-400 mt-1">Use your administrator account.</p>
         </div>
 
         <form @submit.prevent="handleLogin" class="space-y-4 text-xs">
           <div>
-            <label class="block font-semibold text-slate-300 mb-1.5 uppercase text-[10px] tracking-wider">Username</label>
+            <label class="block font-medium text-slate-300 mb-1.5 text-xs">Username</label>
             <div class="relative">
               <User class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
                 v-model="username"
                 type="text"
                 placeholder="admin"
-                class="tf-input w-full pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500"
+                class="tf-input w-full pl-10 pr-4 py-2.5 text-sm text-white"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-300 mb-1.5 uppercase text-[10px] tracking-wider">Password</label>
+            <label class="block font-medium text-slate-300 mb-1.5 text-xs">Password</label>
             <div class="relative">
               <Lock class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="••••••••"
-                class="tf-input w-full pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500"
+                class="tf-input w-full pl-10 pr-10 py-2.5 text-sm text-white"
                 required
               />
               <button
@@ -147,18 +142,17 @@ const handleLogin = async () => {
           <button
             type="submit"
             :disabled="isLoading"
-            class="tf-btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 mt-2 cursor-pointer shadow-sm"
+            class="tf-btn-primary w-full py-2.5 text-sm font-medium flex items-center justify-center gap-2 mt-2 cursor-pointer"
           >
             <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
             <template v-else>
-              <span>Sign In to TeleFlow Pro</span>
-              <ArrowRight class="w-4 h-4" />
+              <span>Sign in</span>
             </template>
           </button>
 
-          <!-- Quick credentials helper for development -->
-          <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
-            <span>Quick Login:</span>
+          <!-- Quick credentials helper: development builds only -->
+          <div v-if="isDev" class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+            <span>Dev quick login:</span>
             <div class="flex items-center gap-1.5 font-mono">
               <button
                 type="button"

@@ -115,7 +115,7 @@ const sendTestMessage = () => {
     <!-- Header with AI status badge -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">AI Assistant</h2>
+        <h2 class="text-xl font-semibold text-white">AI Assistant</h2>
         <p class="text-xs text-slate-400 mt-1">
           Automate intelligent replies across your Telegram communities.
         </p>
@@ -123,12 +123,12 @@ const sendTestMessage = () => {
 
       <div class="flex items-center gap-2">
         <span
-          class="px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5"
+          class="px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5"
           :class="form.enabled
             ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
             : 'bg-slate-800 text-slate-400 border-white/10'"
         >
-          <span class="w-2 h-2 rounded-full" :class="form.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'"></span>
+          <span class="w-2 h-2 rounded-full" :class="form.enabled ? 'bg-emerald-400' : 'bg-slate-400'"></span>
           {{ form.enabled ? '● AI Active' : '● AI Inactive' }}
         </span>
       </div>
@@ -139,7 +139,7 @@ const sendTestMessage = () => {
       <div class="lg:col-span-7 tf-card p-6 space-y-6">
         <!-- AI Provider Selection (Matching prompt: ○ Gemini ○ OpenAI ○ Custom Provider) -->
         <div class="space-y-2">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">
+          <label class="block text-xs font-semibold text-slate-400">
             AI Provider
           </label>
           <div class="grid grid-cols-3 gap-3 text-xs">
@@ -172,7 +172,7 @@ const sendTestMessage = () => {
         <!-- API Key Input -->
         <div class="space-y-2">
           <div class="flex items-center justify-between text-xs">
-            <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <label class="font-semibold text-slate-400 flex items-center gap-1.5">
               <Key class="w-3.5 h-3.5 text-[#2481cc]" />
               API Key
             </label>
@@ -199,7 +199,7 @@ const sendTestMessage = () => {
         <!-- System Prompt -->
         <div class="space-y-2">
           <div class="flex items-center justify-between text-xs">
-            <label class="font-bold uppercase tracking-wider text-slate-400">System Prompt</label>
+            <label class="font-semibold text-slate-400">System Prompt</label>
             <div class="flex items-center gap-1.5">
               <span class="text-[10px] text-slate-400">Presets:</span>
               <button
@@ -303,7 +303,7 @@ const sendTestMessage = () => {
         <div class="border-b border-white/5 pb-3 mb-4 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <Sparkles class="w-4 h-4 text-[#2481cc]" />
-            <h4 class="text-xs font-bold text-white uppercase tracking-wider">AI Sandbox Playground</h4>
+            <h4 class="text-xs font-semibold text-white">AI Sandbox Playground</h4>
           </div>
           <span class="text-[10px] text-slate-400 font-mono">Live Tester</span>
         </div>
@@ -318,7 +318,7 @@ const sendTestMessage = () => {
               ? 'bg-[#2481cc]/15 border border-[#2481cc]/25 text-white ml-6'
               : 'bg-white/[0.03] border border-white/5 text-slate-200 mr-6'"
           >
-            <p class="text-[10px] font-bold text-slate-400 mb-1">
+            <p class="text-[10px] font-semibold text-slate-400 mb-1">
               {{ msg.role === 'user' ? '👤 User Prompt' : '🤖 AI Response' }}
             </p>
             <p>{{ msg.text }}</p>

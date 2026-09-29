@@ -19,12 +19,12 @@ const { toasts, removeToast } = useToast()
       <div
         v-for="toast in toasts"
         :key="toast.id"
-        class="pointer-events-auto flex items-start gap-3 p-4 rounded-2xl liquid-glass-elevated border transition-all duration-200"
+        class="pointer-events-auto flex items-start gap-3 p-4 rounded-xl liquid-glass-elevated border transition-all duration-200"
         :class="{
-          'border-emerald-500/40 text-emerald-300 shadow-[0_12px_32px_-6px_rgba(16,185,129,0.25)]': toast.type === 'success',
-          'border-rose-500/40 text-rose-300 shadow-[0_12px_32px_-6px_rgba(244,63,94,0.25)]': toast.type === 'error',
-          'border-amber-500/40 text-amber-300 shadow-[0_12px_32px_-6px_rgba(245,158,11,0.25)]': toast.type === 'warning',
-          'border-sky-500/40 text-sky-300 shadow-[0_12px_32px_-6px_rgba(14,165,233,0.25)]': toast.type === 'info'
+          'border-emerald-500/30 text-emerald-300': toast.type === 'success',
+          'border-rose-500/30 text-rose-300': toast.type === 'error',
+          'border-amber-500/40 text-amber-300': toast.type === 'warning',
+          'border-sky-500/40 text-sky-300': toast.type === 'info'
         }"
       >
         <div class="flex-shrink-0 mt-0.5">

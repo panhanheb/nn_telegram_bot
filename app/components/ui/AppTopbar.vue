@@ -58,7 +58,7 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
 </script>
 
 <template>
-  <header class="h-16 px-4 sm:px-6 border-b flex items-center justify-between bg-[var(--tf-card)] backdrop-blur-2xl border-[var(--tf-border)] sticky top-0 z-30 select-none shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
+  <header class="h-16 px-4 sm:px-6 border-b flex items-center justify-between bg-[var(--tf-card)] border-[var(--tf-border)] sticky top-0 z-30 select-none">
     <!-- Left: Mobile menu button + Title/Breadcrumb -->
     <div class="flex items-center gap-3">
       <button
@@ -73,7 +73,7 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
       <div class="flex items-center gap-2">
         <span class="text-xs text-slate-400 hidden sm:inline">{{ currentView.section }}</span>
         <span class="text-xs text-slate-500 hidden sm:inline">/</span>
-        <h1 class="text-sm font-bold text-white tracking-tight">{{ currentView.title }}</h1>
+        <h1 class="text-sm font-semibold text-white">{{ currentView.title }}</h1>
       </div>
     </div>
 
@@ -82,13 +82,13 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
       <button
         type="button"
         @click="emit('open-search')"
-        class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-slate-400 bg-white/[0.04] backdrop-blur-md border border-white/10 hover:border-white/20 hover:text-slate-200 transition-all cursor-pointer"
+        class="w-full flex items-center justify-between px-3 py-1.5 rounded-md text-xs text-slate-400 bg-[var(--tf-input)] border border-[var(--tf-border)] hover:border-[var(--tf-border-hover)] hover:text-slate-200 transition-colors cursor-pointer"
       >
         <div class="flex items-center gap-2">
           <Search class="w-3.5 h-3.5" />
-          <span>Search bots, groups, actions...</span>
+          <span>Search…</span>
         </div>
-        <kbd class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-white/10 text-slate-300 border border-white/10">
+        <kbd class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-white/5 text-slate-400 border border-white/10">
           ⌘K
         </kbd>
       </button>
@@ -110,15 +110,11 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
       <div
         v-if="botStore.bot"
         @click="emit('navigate', 'bots')"
-        class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full text-xs cursor-pointer border transition-colors"
-        :class="botStore.isOnline
-          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
-          : 'bg-slate-800 text-slate-400 border-white/10 hover:bg-slate-700'"
+        class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md text-xs cursor-pointer border border-[var(--tf-border)] text-slate-300 hover:bg-white/5 transition-colors"
         :title="`Bot: @${botStore.bot.username} (${botStore.bot.status})`"
       >
         <span class="relative flex h-2 w-2">
-          <span v-if="botStore.isOnline" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2" :class="botStore.isOnline ? 'bg-emerald-500' : 'bg-slate-500'"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2" :class="botStore.isOnline ? 'bg-emerald-500' : 'bg-slate-500'"></span>
         </span>
         <span class="font-medium text-[11px] truncate max-w-[120px]">
           @{{ botStore.bot.username }}
@@ -157,14 +153,14 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
           class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
           :title="`Theme: ${theme}`"
         >
-          <Sun v-if="resolvedTheme === 'light'" class="w-4 h-4 text-amber-400" />
-          <Moon v-else class="w-4 h-4 text-sky-400" />
+          <Sun v-if="resolvedTheme === 'light'" class="w-4 h-4" />
+          <Moon v-else class="w-4 h-4" />
         </button>
 
         <div
           v-if="showThemeMenu"
           @click.outside="showThemeMenu = false"
-          class="absolute right-0 mt-2 w-36 py-1 bg-[var(--tf-card-elevated)] border border-[var(--tf-border)] rounded-xl shadow-md z-50 text-xs text-slate-200"
+          class="absolute right-0 mt-2 w-36 py-1 tf-card-elevated z-50 text-xs text-slate-200"
         >
           <button
             @click="applyTheme('light'); showThemeMenu = false"
@@ -200,7 +196,7 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
           @click="showUserMenu = !showUserMenu; showThemeMenu = false"
           class="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer border border-transparent hover:border-white/10"
         >
-          <div class="w-7 h-7 rounded-full bg-[#2481cc]/20 border border-[#2481cc]/40 text-[#2481cc] flex items-center justify-center font-bold text-xs">
+          <div class="w-7 h-7 rounded-full bg-[#2481cc] text-white flex items-center justify-center font-semibold text-xs">
             {{ (authStore.user?.username || 'A')[0]?.toUpperCase() }}
           </div>
           <span class="text-xs font-semibold hidden md:inline truncate max-w-[90px]">
@@ -212,11 +208,11 @@ const currentView = computed(() => tabTitles[props.activeTab] || { title: 'Dashb
         <div
           v-if="showUserMenu"
           @click.outside="showUserMenu = false"
-          class="absolute right-0 mt-2 w-48 py-1 bg-[var(--tf-card-elevated)] border border-[var(--tf-border)] rounded-xl shadow-md z-50 text-xs text-slate-200"
+          class="absolute right-0 mt-2 w-48 py-1 tf-card-elevated z-50 text-xs text-slate-200"
         >
           <div class="px-3 py-2 border-b border-white/5">
             <p class="font-semibold text-white truncate">{{ authStore.user?.username || 'Administrator' }}</p>
-            <p class="text-[10px] text-slate-400 font-mono">Super Admin</p>
+            <p class="text-[11px] text-slate-400">Administrator</p>
           </div>
 
           <button

@@ -79,6 +79,8 @@ export interface ModerationSettings {
   deleteStickers: boolean
   deleteFiles: boolean
   blockedExtensions?: string[]
+  // Lower-case words/phrases; a message containing any of them is removed.
+  blockedKeywords: string[]
   // Group admins/owner bypass automatic moderation.
   exemptAdmins: boolean
   // Warnings before a user is muted. 0 = never mute, only delete + warn.
@@ -449,6 +451,7 @@ export const db = {
         'ova', 'ovf', 'elf', 'bin', 'run', 'out', 'zip', 'rar', '7z', 'tar', 'gz',
         'tgz', 'bz2', 'xz', 'cab', 'torrent', 'pdf', 'rtf'
       ],
+      blockedKeywords: [],
       exemptAdmins: true,
       warnLimit: 3,
       muteMinutes: 60,

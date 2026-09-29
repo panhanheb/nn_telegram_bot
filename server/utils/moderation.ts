@@ -48,6 +48,18 @@ export const RESTRICTED_FILE_EXTENSIONS = [
   'tgz', 'bz2', 'xz', 'cab', 'torrent', 'pdf', 'rtf'
 ]
 
+// Return the first blocked keyword/phrase found in the text or caption
+// (case-insensitive substring match), or '' when none match.
+export function findBlockedKeyword(msg: TelegramIncomingMessage, keywords?: string[]): string {
+  if (!Array.isArray(keywords) || keywords.length === 0) return ''
+  const text = `${msg.text || ''} ${msg.caption || ''}`.toLowerCase().replace(/\s+/g, ' ')
+  if (!text.trim()) return ''
+  return keywords.find(kw => {
+    const clean = kw.trim().toLowerCase()
+    return clean.length > 0 && text.includes(clean)
+  }) || ''
+}
+
 export function isSticker(msg: TelegramIncomingMessage): boolean {
   return !!msg.sticker
 }
@@ -334,6 +346,14 @@ async function moderateMessage(
       fileDetail = fileCheck.ext ? ` (${fileCheck.ext})` : ''
     }
   }
+  let keywordDetail = ''
+  if (!reason) {
+    const keyword = findBlockedKeyword(msg, settings.blockedKeywords)
+    if (keyword) {
+      reason = 'keyword'
+      keywordDetail = ` ("${keyword}")`
+    }
+  }
   if (!reason) return false
 
   const chatId = String(msg.chat.id)
@@ -357,6 +377,8 @@ async function moderateMessage(
         ? `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, stickers are not allowed in this group.`
         : reason === 'link'
         ? `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, links are not allowed in this group.`
+        : reason === 'keyword'
+        ? `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, messages with blocked words are not allowed in this group.`
         : `🚫 ជោមេសគេប្រាប់ហើយនិងហាស៎ \n ${mention}, files ${fileDetail ? fileDetail + ' ' : ''}are not allowed in this group.`) +
       strikeLine
     try {
@@ -370,12 +392,12 @@ async function moderateMessage(
       group ? group.id : null,
       chatTitle,
       null,
-      `🧹 Auto-deleted ${reason}${fileDetail} from ${who}`,
+      `🧹 Auto-deleted ${reason}${fileDetail}${keywordDetail} from ${who}`,
       'SUCCESS',
       null,
       null
     )
-    console.log(`[Moderation] Deleted ${reason}${fileDetail} in "${chatTitle}" from ${who}`)
+    console.log(`[Moderation] Deleted ${reason}${fileDetail}${keywordDetail} in "${chatTitle}" from ${who}`)
     return true
   } catch (err: any) {
     // Deletion failed (e.g. bot is not admin): the message stays, so treat it as kept.

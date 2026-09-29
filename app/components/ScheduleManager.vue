@@ -310,7 +310,7 @@ const filteredSchedules = computed(() => {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Broadcast Scheduler</h2>
+        <h2 class="text-xl font-semibold text-white">Broadcast Scheduler</h2>
         <p class="text-xs text-slate-400 mt-1">
           Automate recurring messages, announcements, and periodic community updates.
         </p>
@@ -375,7 +375,7 @@ const filteredSchedules = computed(() => {
       <div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-slate-400 mx-auto flex items-center justify-center">
         <Clock class="w-6 h-6" />
       </div>
-      <h4 class="text-sm font-bold text-white">No schedules configured</h4>
+      <h4 class="text-sm font-semibold text-white">No schedules configured</h4>
       <p class="text-xs text-slate-400 max-w-xs mx-auto">
         Set up recurring broadcasts to automatically engage your communities.
       </p>
@@ -405,7 +405,7 @@ const filteredSchedules = computed(() => {
         <div>
           <!-- Title & Pause/Resume -->
           <div class="flex items-start justify-between gap-3 mb-3">
-            <h3 class="text-sm font-bold text-white group-hover:text-[#2481cc] transition-colors truncate">
+            <h3 class="text-sm font-semibold text-white group-hover:text-[#2481cc] transition-colors truncate">
               📢 {{ s.title }}
             </h3>
             <button
@@ -472,10 +472,10 @@ const filteredSchedules = computed(() => {
         <!-- Footer Status & Actions -->
         <div class="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
           <span
-            class="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border"
+            class="px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 border"
             :class="s.isActive ? 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30' : 'text-slate-400 bg-slate-800 border-white/10'"
           >
-            <span class="w-1.5 h-1.5 rounded-full" :class="s.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'"></span>
+            <span class="w-1.5 h-1.5 rounded-full" :class="s.isActive ? 'bg-emerald-400' : 'bg-slate-400'"></span>
             {{ s.isActive ? 'Scheduled' : 'Paused' }}
           </span>
 
@@ -509,7 +509,7 @@ const filteredSchedules = computed(() => {
     <!-- CALENDAR VIEW -->
     <div v-else-if="viewMode === 'calendar'" class="tf-card p-6 space-y-4">
       <div class="flex items-center justify-between">
-        <h3 class="text-sm font-bold text-white">Monthly Broadcast Distribution</h3>
+        <h3 class="text-sm font-semibold text-white">Monthly Broadcast Distribution</h3>
         <div class="flex items-center gap-2 text-xs">
           <button type="button" @click="shiftMonth(-1)" class="px-2 py-0.5 rounded hover:bg-white/5 text-slate-400 hover:text-white cursor-pointer">‹</button>
           <span class="text-slate-300 min-w-[110px] text-center">{{ calendarTitle }}</span>
@@ -518,7 +518,7 @@ const filteredSchedules = computed(() => {
       </div>
 
       <div class="grid grid-cols-7 gap-2 text-center text-xs">
-        <div v-for="d in daysOfWeek" :key="d" class="font-bold text-slate-400 py-1 uppercase text-[10px]">
+        <div v-for="d in daysOfWeek" :key="d" class="font-semibold text-slate-400 py-1 uppercase text-[10px]">
           {{ d }}
         </div>
         <template v-for="(cell, i) in calendarCells" :key="i">
@@ -528,7 +528,7 @@ const filteredSchedules = computed(() => {
             class="min-h-[70px] p-1.5 rounded-lg border text-left relative flex flex-col gap-1"
             :class="cell.isToday ? 'border-[#2481cc]/60 bg-[#2481cc]/5' : 'border-white/5 bg-white/[0.01]'"
           >
-            <span class="text-[10px] font-mono" :class="cell.isToday ? 'text-sky-400 font-bold' : 'text-slate-400'">{{ cell.day }}</span>
+            <span class="text-[10px] font-mono" :class="cell.isToday ? 'text-sky-400 font-semibold' : 'text-slate-400'">{{ cell.day }}</span>
             <div
               v-for="item in cell.items.slice(0, 3)"
               :key="item.id"
@@ -545,7 +545,7 @@ const filteredSchedules = computed(() => {
 
     <!-- TIMELINE VIEW -->
     <div v-else class="tf-card p-6 space-y-4">
-      <h3 class="text-sm font-bold text-white">24-Hour Broadcast Timeline</h3>
+      <h3 class="text-sm font-semibold text-white">24-Hour Broadcast Timeline</h3>
       <div class="relative pl-6 border-l-2 border-[#2481cc]/30 space-y-6 text-xs">
         <div
           v-for="s in filteredSchedules"
@@ -554,7 +554,7 @@ const filteredSchedules = computed(() => {
         >
           <span class="absolute -left-[31px] top-0 w-3 h-3 rounded-full bg-[#2481cc] ring-4 ring-[var(--tf-card)]"></span>
           <p class="font-mono text-[10px] text-sky-400">{{ s.time }} · {{ formatRecurrence(s) }}</p>
-          <h4 class="font-bold text-white">{{ s.title }}</h4>
+          <h4 class="font-semibold text-white">{{ s.title }}</h4>
           <p class="text-slate-400 text-[11px]">
             {{ targetNames(s).length ? targetNames(s).join(', ') : 'All active groups' }}
           </p>
@@ -564,9 +564,9 @@ const filteredSchedules = computed(() => {
 
     <!-- Modal: Create / Edit Schedule -->
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div @click="showModal = false" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" />
+      <div @click="showModal = false" class="fixed inset-0 bg-slate-950/70" />
       <div class="relative w-full max-w-lg tf-card-elevated z-10 p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-        <h3 class="text-sm font-bold text-white">
+        <h3 class="text-sm font-semibold text-white">
           {{ isEditing ? 'Edit Broadcast Schedule' : 'Create Broadcast Schedule' }}
         </h3>
 

@@ -15,7 +15,7 @@ const emit = defineEmits<{
     <!-- Backdrop -->
     <div
       @click="emit('update:open', false)"
-      class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+      class="fixed inset-0 bg-slate-950/70 transition-opacity"
     ></div>
 
     <!-- Modal Content -->
@@ -26,7 +26,7 @@ const emit = defineEmits<{
             <BookOpen class="w-4 h-4" />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">TeleFlow Pro Documentation</h3>
+            <h3 class="text-sm font-semibold text-white">TeleFlow Pro Documentation</h3>
             <p class="text-xs text-slate-400">Architecture overview, shortcuts, and BotFather setup guide</p>
           </div>
         </div>
@@ -41,7 +41,7 @@ const emit = defineEmits<{
       <div class="p-6 space-y-6 text-xs text-slate-300">
         <!-- Quick Keyboard Shortcuts -->
         <div>
-          <h4 class="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <h4 class="text-xs font-semibold text-white mb-3 flex items-center gap-1.5">
             <Keyboard class="w-3.5 h-3.5 text-[#2481cc]" /> Keyboard Shortcuts
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -66,7 +66,7 @@ const emit = defineEmits<{
 
         <!-- BotFather Setup Steps -->
         <div class="p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 space-y-3">
-          <h4 class="text-xs font-bold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
+          <h4 class="text-xs font-semibold text-sky-300 flex items-center gap-1.5">
             <ShieldCheck class="w-3.5 h-3.5 text-sky-400" /> Essential BotFather Commands
           </h4>
           <p class="text-[11px] text-slate-300 leading-relaxed">
@@ -74,11 +74,11 @@ const emit = defineEmits<{
           </p>
           <ul class="space-y-2 font-mono text-[11px]">
             <li class="p-2 rounded bg-black/30 border border-white/5">
-              <span class="text-sky-400 font-bold">/setprivacy</span> → Select your bot → Choose <span class="text-emerald-400">Disable</span>
+              <span class="text-sky-400 font-semibold">/setprivacy</span> → Select your bot → Choose <span class="text-emerald-400">Disable</span>
               <p class="text-[10px] text-slate-400 font-sans mt-0.5">Allows the bot to read incoming group messages for moderation & AI replies.</p>
             </li>
             <li class="p-2 rounded bg-black/30 border border-white/5">
-              <span class="text-sky-400 font-bold">/setjoingroups</span> → Select your bot → Choose <span class="text-emerald-400">Enable</span>
+              <span class="text-sky-400 font-semibold">/setjoingroups</span> → Select your bot → Choose <span class="text-emerald-400">Enable</span>
               <p class="text-[10px] text-slate-400 font-sans mt-0.5">Permits your bot to be added to Telegram groups and supergroups.</p>
             </li>
           </ul>
@@ -86,7 +86,7 @@ const emit = defineEmits<{
 
         <!-- System Architecture -->
         <div class="space-y-2">
-          <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+          <h4 class="text-xs font-semibold text-white flex items-center gap-1.5">
             <Sparkles class="w-3.5 h-3.5 text-purple-400" /> Technology Stack
           </h4>
           <p class="text-[11px] text-slate-400 leading-relaxed">

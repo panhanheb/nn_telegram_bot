@@ -9,7 +9,25 @@ export default defineEventHandler(async (event) => {
     if (body.deleteLinks !== undefined) updates.deleteLinks = !!body.deleteLinks
     if (body.deleteStickers !== undefined) updates.deleteStickers = !!body.deleteStickers
     if (body.deleteFiles !== undefined) updates.deleteFiles = !!body.deleteFiles
-    if (Array.isArray(body.blockedExtensions)) updates.blockedExtensions = body.blockedExtensions
+    if (Array.isArray(body.blockedExtensions)) {
+      // Store bare lower-case extensions ("exe", not ".EXE"); '*' blocks every file.
+      const cleaned = body.blockedExtensions
+        .filter((e: unknown): e is string => typeof e === 'string')
+        .map((e: string) => e.trim().toLowerCase().replace(/^\.+/, ''))
+        .filter((e: string) => /^(\*|[a-z0-9]{1,16})$/.test(e))
+      updates.blockedExtensions = [...new Set<string>(cleaned)].slice(0, 300)
+    }
+    if (Array.isArray(body.blockedKeywords)) {
+      const cleaned = body.blockedKeywords
+        .filter((k: unknown): k is string => typeof k === 'string')
+        .map((k: string) => k.trim().toLowerCase().replace(/\s+/g, ' '))
+        .filter((k: string) => k.length > 0 && k.length <= 64)
+      const unique = [...new Set<string>(cleaned)]
+      if (unique.length > 100) {
+        throw createError({ statusCode: 400, statusMessage: 'At most 100 blocked keywords are allowed' })
+      }
+      updates.blockedKeywords = unique
+    }
     if (body.exemptAdmins !== undefined) updates.exemptAdmins = !!body.exemptAdmins
     if (body.warnLimit !== undefined) {
       const n = Math.floor(Number(body.warnLimit))

@@ -1,11 +1,13 @@
 import { db } from '../../utils/db'
+import { isDeliveryLog } from '../../utils/log-kind'
 
 export default defineEventHandler(async () => {
   try {
     const bot = await db.getBot()
     const groups = await db.getGroups()
     const schedules = await db.getSchedules()
-    const logs = await db.getLogs()
+    // Delivery stats only count real sends, not moderation/AI/housekeeping entries.
+    const logs = (await db.getLogs()).filter(isDeliveryLog)
 
     const botConfigured = !!bot
     const botOnline = !!bot && bot.active && bot.status === 'ONLINE'

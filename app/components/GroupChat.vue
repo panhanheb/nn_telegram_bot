@@ -466,7 +466,7 @@ const handleSyncTelegram = async () => {
       >
         <div class="p-3 border-b border-[var(--tf-border)] space-y-2">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-white tracking-wide uppercase">Conversations</span>
+            <span class="text-xs font-semibold text-white">Conversations</span>
             <button
               @click="showAddGroupModal = true"
               class="px-2 py-0.5 rounded text-[#2481cc] hover:text-[#50a7ea] hover:bg-white/5 transition flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
@@ -517,14 +517,14 @@ const handleSyncTelegram = async () => {
             :class="activeGroupId === g.id ? 'bg-[#2481cc]/15 border-l-2 border-[#2481cc]' : 'hover:bg-white/5'"
           >
             <!-- Avatar with online indicator -->
-            <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0 relative">
+            <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-semibold text-xs shrink-0 relative">
               {{ initials(g.name) }}
               <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[var(--tf-card)]"></span>
             </div>
 
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-1">
-                <p class="text-xs font-bold text-white truncate">{{ g.name }}</p>
+                <p class="text-xs font-semibold text-white truncate">{{ g.name }}</p>
                 <span class="text-[10px] text-slate-400 shrink-0">14:28</span>
               </div>
               <p class="text-[11px] text-slate-400 truncate mt-0.5">
@@ -576,21 +576,22 @@ const handleSyncTelegram = async () => {
         ]"
       >
         <!-- Top Chat Header -->
-        <header v-if="activeGroup" class="h-14 px-4 border-b border-[var(--tf-border)] flex items-center justify-between bg-[var(--tf-card)] backdrop-blur-md shrink-0 z-10">
+        <header v-if="activeGroup" class="h-14 px-4 border-b border-[var(--tf-border)] flex items-center justify-between bg-[var(--tf-card)] shrink-0 z-10">
           <div class="flex items-center gap-3 min-w-0">
             <button @click="activeGroupId = null" class="lg:hidden p-1 text-slate-400 hover:text-white cursor-pointer">
               <ArrowLeft class="w-4 h-4" />
             </button>
-            <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+            <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-semibold text-xs shrink-0">
               {{ initials(activeGroup.name) }}
             </div>
             <div class="min-w-0">
-              <p class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+              <p class="text-xs font-semibold text-white truncate flex items-center gap-1.5">
                 {{ activeGroup.name }}
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               </p>
-              <p class="text-[10px] text-slate-400 truncate">
-                {{ chatStore.totalCount !== null ? chatStore.totalCount.toLocaleString() : (activeGroup.membersCount || '12,482') }} members
+              <p class="text-[11px] text-slate-400 truncate">
+                <template v-if="chatStore.totalCount !== null">{{ chatStore.totalCount.toLocaleString() }} members</template>
+                <template v-else>{{ activeGroup.type }}</template>
               </p>
             </div>
           </div>
@@ -602,7 +603,7 @@ const handleSyncTelegram = async () => {
               class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
               title="Telegram Webhook is actively pushing updates to this Cloudflare Worker"
             >
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               Realtime Active
             </div>
             <button
@@ -666,10 +667,10 @@ const handleSyncTelegram = async () => {
 
         <!-- Empty State when no group is active -->
         <div v-if="!activeGroup" class="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 chat-canvas">
-          <div class="w-16 h-16 rounded-2xl bg-[#2481cc]/10 border border-[#2481cc]/20 flex items-center justify-center text-[#50a7ea]">
+          <div class="w-16 h-16 rounded-xl bg-[#2481cc]/10 border border-[#2481cc]/20 flex items-center justify-center text-[#50a7ea]">
             <MessageSquare class="w-8 h-8" />
           </div>
-          <h3 class="text-sm font-bold text-white">Select a Conversation</h3>
+          <h3 class="text-sm font-semibold text-white">Select a Conversation</h3>
           <p class="text-xs text-slate-400 max-w-sm">
             Choose a Telegram group from the left or connect your group to start chatting and viewing messages in real-time.
           </p>
@@ -691,7 +692,7 @@ const handleSyncTelegram = async () => {
         >
           <!-- Chat Date Badge -->
           <div class="flex justify-center my-2">
-            <span class="px-3 py-0.5 rounded-full bg-black/40 text-slate-300 text-[10px] font-medium backdrop-blur-sm border border-white/5">
+            <span class="px-3 py-0.5 rounded-full bg-black/40 text-slate-300 text-[10px] font-medium border border-white/5">
               Today
             </span>
           </div>
@@ -716,7 +717,7 @@ const handleSyncTelegram = async () => {
           >
             <!-- Avatar -->
             <div
-              class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 shadow-sm"
+              class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 mt-0.5 shadow-sm"
               :class="msg.direction === 'out' ? 'bg-[#2481cc] text-white' : (msg.isBot ? 'bg-sky-500/20 text-sky-300' : 'bg-indigo-500/20 text-indigo-300')"
             >
               {{ initials(msg.fromName) }}
@@ -734,7 +735,7 @@ const handleSyncTelegram = async () => {
               <!-- Sender Name for incoming messages -->
               <p
                 v-if="msg.direction === 'in'"
-                class="text-[11px] font-bold mb-1 flex items-center gap-1"
+                class="text-[11px] font-semibold mb-1 flex items-center gap-1"
                 :class="msg.isBot ? 'text-sky-400' : 'text-purple-400'"
               >
                 {{ msg.fromName }}
@@ -813,7 +814,7 @@ const handleSyncTelegram = async () => {
             </div>
 
             <!-- Message Hover Action Bar -->
-            <div class="self-center flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 backdrop-blur-md rounded-lg p-0.5 border border-white/10">
+            <div class="self-center flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-lg p-0.5 border border-white/10">
               <button
                 type="button"
                 @click="startReply(msg)"
@@ -866,7 +867,7 @@ const handleSyncTelegram = async () => {
           <ChevronDown class="w-4 h-4" />
           <span
             v-if="newMessageCount"
-            class="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#2481cc] text-white text-[10px] font-bold flex items-center justify-center"
+            class="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#2481cc] text-white text-[10px] font-semibold flex items-center justify-center"
           >
             {{ newMessageCount > 99 ? '99+' : newMessageCount }}
           </span>
@@ -1002,7 +1003,7 @@ const handleSyncTelegram = async () => {
         </div>
 
         <!-- Composer Footer -->
-        <form v-if="activeGroup" @submit.prevent="handleSend" class="p-3 bg-[var(--tf-card)] backdrop-blur-md border-t border-[var(--tf-border)] flex items-end gap-2 shrink-0">
+        <form v-if="activeGroup" @submit.prevent="handleSend" class="p-3 bg-[var(--tf-card)] border-t border-[var(--tf-border)] flex items-end gap-2 shrink-0">
           <input ref="photoInput" type="file" accept="image/*" class="hidden" @change="handleMediaSelect($event, 'photo')" />
           <input ref="videoInput" type="file" accept="video/*" class="hidden" @change="handleMediaSelect($event, 'video')" />
           <input ref="stickerFileInput" type="file" accept=".webp,image/webp,image/png" class="hidden" @change="handleStickerFileSelect" />
@@ -1076,7 +1077,7 @@ const handleSyncTelegram = async () => {
       >
         <!-- Panel Header -->
         <div class="p-4 border-b border-[var(--tf-border)] flex items-center justify-between">
-          <h4 class="font-bold text-white uppercase tracking-wider text-[11px]">Group Info</h4>
+          <h4 class="font-semibold text-white text-[11px]">Group Info</h4>
           <button @click="showRightPanel = false" class="p-1 text-slate-400 hover:text-white">
             <X class="w-3.5 h-3.5" />
           </button>
@@ -1085,14 +1086,14 @@ const handleSyncTelegram = async () => {
         <div class="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
           <!-- Group Profile Card -->
           <div class="text-center space-y-2">
-            <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-lg flex items-center justify-center mx-auto ring-4 ring-white/5">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-lg flex items-center justify-center mx-auto ring-4 ring-white/5">
               {{ initials(activeGroup.name) }}
             </div>
             <div>
-              <h3 class="text-sm font-bold text-white">{{ activeGroup.name }}</h3>
+              <h3 class="text-sm font-semibold text-white">{{ activeGroup.name }}</h3>
               <p class="text-[11px] text-slate-400 font-mono mt-0.5">{{ activeGroup.chatId }}</p>
-              <p class="text-[11px] text-[#2481cc] font-medium mt-1">
-                {{ chatStore.totalCount !== null ? chatStore.totalCount.toLocaleString() : '12,482' }} members
+              <p v-if="chatStore.totalCount !== null" class="text-[11px] text-[#2481cc] font-medium mt-1">
+                {{ chatStore.totalCount.toLocaleString() }} members
               </p>
             </div>
           </div>
@@ -1133,7 +1134,7 @@ const handleSyncTelegram = async () => {
 
           <!-- Permissions & Automation Quick Switches -->
           <div class="space-y-3">
-            <h5 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Automation & Security</h5>
+            <h5 class="text-[10px] font-semibold text-slate-400">Automation & Security</h5>
 
             <div class="p-3 rounded-lg bg-white/[0.02] border border-white/5 flex items-center justify-between">
               <div class="flex items-center gap-2">
@@ -1166,12 +1167,12 @@ const handleSyncTelegram = async () => {
     <!-- Add Group Modal -->
     <div
       v-if="showAddGroupModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
       @click.self="showAddGroupModal = false"
     >
-      <div class="bg-[var(--tf-card-elevated)] border border-[var(--tf-border)] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div class="bg-[var(--tf-card-elevated)] border border-[var(--tf-border)] rounded-xl w-full max-w-md p-6 space-y-4 shadow-sm">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
             <Users class="w-4 h-4 text-[#50a7ea]" />
             Connect Telegram Group
           </h3>

@@ -139,7 +139,7 @@ if (selectedGroupIds.value.length === 0) {
   <div class="space-y-6">
     <!-- Header -->
     <div>
-      <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Broadcast Center</h2>
+      <h2 class="text-xl font-semibold text-white">Broadcast Center</h2>
       <p class="text-xs text-slate-400 mt-1">
         Design and dispatch multichannel Telegram broadcasts with live message review.
       </p>
@@ -155,13 +155,13 @@ if (selectedGroupIds.value.length === 0) {
           :class="currentStep === step.num ? 'bg-[#2481cc]/15 border border-[#2481cc]/30' : (currentStep > step.num ? 'opacity-90' : 'opacity-40')"
         >
           <div
-            class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0"
+            class="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-xs shrink-0"
             :class="currentStep >= step.num ? 'bg-[#2481cc] text-white' : 'bg-slate-800 text-slate-400'"
           >
             {{ step.num }}
           </div>
           <div class="hidden sm:block min-w-0">
-            <p class="text-xs font-bold text-white truncate">{{ step.title }}</p>
+            <p class="text-xs font-semibold text-white truncate">{{ step.title }}</p>
             <p class="text-[10px] text-slate-400 truncate">{{ step.desc }}</p>
           </div>
         </div>
@@ -172,7 +172,7 @@ if (selectedGroupIds.value.length === 0) {
     <div v-if="currentStep === 1" class="tf-card p-6 space-y-5">
       <div class="flex items-center justify-between border-b border-white/5 pb-4">
         <div>
-          <h3 class="text-sm font-bold text-white">Step 1: Write Broadcast Message</h3>
+          <h3 class="text-sm font-semibold text-white">Step 1: Write Broadcast Message</h3>
           <p class="text-[11px] text-slate-400">Craft your notification payload with text formatting and optional media.</p>
         </div>
         <div class="flex items-center gap-2">
@@ -244,7 +244,7 @@ if (selectedGroupIds.value.length === 0) {
     <div v-else-if="currentStep === 2" class="tf-card p-6 space-y-5">
       <div class="flex items-center justify-between border-b border-white/5 pb-4">
         <div>
-          <h3 class="text-sm font-bold text-white">Step 2: Select Audience</h3>
+          <h3 class="text-sm font-semibold text-white">Step 2: Select Audience</h3>
           <p class="text-[11px] text-slate-400">Choose the destination Telegram groups and broadcast channels.</p>
         </div>
         <button
@@ -316,7 +316,7 @@ if (selectedGroupIds.value.length === 0) {
     <!-- Step 3: Schedule Settings -->
     <div v-else-if="currentStep === 3" class="tf-card p-6 space-y-5">
       <div class="border-b border-white/5 pb-4">
-        <h3 class="text-sm font-bold text-white">Step 3: Dispatch Timing</h3>
+        <h3 class="text-sm font-semibold text-white">Step 3: Dispatch Timing</h3>
         <p class="text-[11px] text-slate-400">Choose whether to broadcast immediately or schedule for future delivery.</p>
       </div>
 
@@ -328,7 +328,7 @@ if (selectedGroupIds.value.length === 0) {
         >
           <div class="flex items-center gap-2.5 mb-1">
             <Send class="w-4 h-4 text-[#2481cc]" />
-            <h4 class="text-xs font-bold text-white">Send Now</h4>
+            <h4 class="text-xs font-semibold text-white">Send Now</h4>
           </div>
           <p class="text-[11px] text-slate-400">Deliver immediately across all selected channels</p>
         </div>
@@ -340,7 +340,7 @@ if (selectedGroupIds.value.length === 0) {
         >
           <div class="flex items-center gap-2.5 mb-1">
             <Clock class="w-4 h-4 text-amber-400" />
-            <h4 class="text-xs font-bold text-white">Schedule for Later</h4>
+            <h4 class="text-xs font-semibold text-white">Schedule for Later</h4>
           </div>
           <p class="text-[11px] text-slate-400">Pick a future date, time, and timezone</p>
         </div>
@@ -390,7 +390,7 @@ if (selectedGroupIds.value.length === 0) {
       <!-- Left: Review summary -->
       <div class="lg:col-span-7 tf-card p-6 space-y-5">
         <div class="border-b border-white/5 pb-4">
-          <h3 class="text-sm font-bold text-white">Step 4: Final Review</h3>
+          <h3 class="text-sm font-semibold text-white">Step 4: Final Review</h3>
           <p class="text-[11px] text-slate-400">Confirm all parameters before dispatching broadcast.</p>
         </div>
 
@@ -424,7 +424,7 @@ if (selectedGroupIds.value.length === 0) {
             type="button"
             @click="scheduleType === 'now' ? handleSendNow() : handleSchedule()"
             :disabled="isSending"
-            class="tf-btn-primary px-6 py-2.5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+            class="tf-btn-primary px-6 py-2.5 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md"
           >
             <RefreshCw v-if="isSending" class="w-4 h-4 animate-spin" />
             <Send v-else class="w-4 h-4" />
@@ -435,11 +435,11 @@ if (selectedGroupIds.value.length === 0) {
 
       <!-- Right: Mobile Telegram Preview Frame -->
       <div class="lg:col-span-5 flex justify-center">
-        <div class="w-full max-w-sm rounded-3xl border-4 border-white/20 bg-slate-900/70 backdrop-blur-xl p-4 shadow-xl space-y-4 ring-1 ring-white/10">
+        <div class="w-full max-w-sm rounded-3xl border-4 border-white/20 bg-slate-900/70 p-4 shadow-sm space-y-4 ring-1 ring-white/10">
           <div class="flex items-center justify-between text-[10px] text-slate-400 border-b border-white/10 pb-2">
             <div class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span class="font-bold text-white">Telegram Preview</span>
+              <span class="font-semibold text-white">Telegram Preview</span>
             </div>
             <span>Today 14:30</span>
           </div>

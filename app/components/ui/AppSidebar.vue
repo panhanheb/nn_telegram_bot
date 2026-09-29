@@ -15,13 +15,11 @@ import {
   Settings,
   HelpCircle,
   ChevronLeft,
-  ChevronRight,
-  Activity
+  ChevronRight
 } from 'lucide-vue-next'
 import { useBotStore } from '../../stores/bot'
 import { useGroupsStore } from '../../stores/groups'
 import { useSchedulesStore } from '../../stores/schedules'
-import { useLogsStore } from '../../stores/logs'
 
 const props = defineProps<{
   activeTab: string
@@ -37,7 +35,6 @@ const emit = defineEmits<{
 const botStore = useBotStore()
 const groupsStore = useGroupsStore()
 const schedulesStore = useSchedulesStore()
-const logsStore = useLogsStore()
 
 const channelsCount = computed(() => groupsStore.groups.filter(g => g.type === 'channel').length)
 const groupsCount = computed(() => groupsStore.groups.filter(g => g.type !== 'channel').length)
@@ -64,14 +61,14 @@ const navSections = computed<NavSection[]>(() => [
     ]
   },
   {
-    title: 'BOT MANAGEMENT',
+    title: 'Bot management',
     items: [
       {
         id: 'bots',
         name: 'Bots',
         icon: Bot,
-        badge: botStore.isConfigured ? (botStore.isOnline ? 'Online' : 'Offline') : '0',
-        badgeColor: botStore.isOnline ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'
+        badge: botStore.isConfigured ? undefined : 'Setup',
+        badgeColor: 'bg-amber-500/10 text-amber-400'
       },
       {
         id: 'groups',
@@ -88,14 +85,12 @@ const navSections = computed<NavSection[]>(() => [
     ]
   },
   {
-    title: 'MESSAGING',
+    title: 'Messaging',
     items: [
       {
         id: 'chat',
         name: 'Messages',
-        icon: MessageSquare,
-        badge: 'Live',
-        badgeColor: 'bg-sky-500/15 text-sky-400 border border-sky-500/20'
+        icon: MessageSquare
       },
       {
         id: 'broadcasts',
@@ -111,7 +106,7 @@ const navSections = computed<NavSection[]>(() => [
     ]
   },
   {
-    title: 'AUTOMATION',
+    title: 'Automation',
     items: [
       {
         id: 'ai',
@@ -126,7 +121,7 @@ const navSections = computed<NavSection[]>(() => [
     ]
   },
   {
-    title: 'INSIGHTS',
+    title: 'Insights',
     items: [
       {
         id: 'analytics',
@@ -136,13 +131,12 @@ const navSections = computed<NavSection[]>(() => [
       {
         id: 'logs',
         name: 'Activity Logs',
-        icon: ListTodo,
-        badge: logsStore.logs.length || undefined
+        icon: ListTodo
       }
     ]
   },
   {
-    title: 'SYSTEM',
+    title: 'System',
     items: [
       {
         id: 'settings',
@@ -170,7 +164,7 @@ const handleItemClick = (item: NavItem) => {
 
 <template>
   <aside
-    class="relative z-20 flex flex-col h-screen border-r transition-all duration-300 select-none bg-[var(--tf-card)] backdrop-blur-2xl border-[var(--tf-border)] shrink-0 shadow-[1px_0_24px_rgba(0,0,0,0.12)]"
+    class="relative z-20 flex flex-col h-screen border-r transition-all duration-300 select-none bg-[var(--tf-sidebar)] border-[var(--tf-border)] shrink-0"
     :class="collapsed ? 'w-16' : 'w-64'"
   >
     <!-- Brand Header -->
@@ -179,7 +173,7 @@ const handleItemClick = (item: NavItem) => {
         @click="emit('update:activeTab', 'overview')"
         class="flex items-center gap-3 cursor-pointer overflow-hidden group"
       >
-        <div class="w-8 h-8 rounded-lg bg-[#2481cc] flex items-center justify-center text-white shrink-0 shadow-sm shadow-[#2481cc]/30 group-hover:bg-[#1d73b8] transition-colors">
+        <div class="w-8 h-8 rounded-lg bg-[#2481cc] flex items-center justify-center text-white shrink-0 group-hover:bg-[#1f72b5] transition-colors">
           <Send class="w-4 h-4 transform rotate-[15deg] -translate-x-0.5" />
         </div>
         <div v-if="!collapsed" class="min-w-0 flex flex-col leading-none">
@@ -211,7 +205,7 @@ const handleItemClick = (item: NavItem) => {
         <!-- Section Header -->
         <p
           v-if="section.title && !collapsed"
-          class="px-2.5 py-1 text-[10px] font-semibold text-slate-400 tracking-wider uppercase"
+          class="px-3 pb-1 text-[11px] font-medium text-slate-500"
         >
           {{ section.title }}
         </p>
@@ -228,18 +222,18 @@ const handleItemClick = (item: NavItem) => {
           :key="item.id"
           type="button"
           @click="handleItemClick(item)"
-          class="w-full flex items-center rounded-lg transition-all text-xs font-medium relative group cursor-pointer"
+          class="w-full flex items-center rounded-md transition-colors text-[13px] font-medium relative group cursor-pointer"
           :class="[
-            collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2',
+            collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-1.5',
             activeTab === item.id
-              ? 'liquid-glass-button text-white font-semibold shadow-md shadow-[#2481cc]/25'
-              : 'text-slate-300 hover:text-white hover:bg-white/5'
+              ? 'bg-[var(--tf-primary-soft)] text-white'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           ]"
         >
           <component
             :is="item.icon"
             class="w-4 h-4 shrink-0 transition-colors"
-            :class="activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'"
+            :class="activeTab === item.id ? 'text-[#2481cc]' : 'text-slate-500 group-hover:text-slate-300'"
           />
 
           <span v-if="!collapsed" class="truncate flex-1 text-left">
@@ -249,8 +243,8 @@ const handleItemClick = (item: NavItem) => {
           <!-- Badge -->
           <span
             v-if="!collapsed && item.badge !== undefined"
-            class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-            :class="item.badgeColor || (activeTab === item.id ? 'bg-white/25 text-white' : 'bg-white/10 text-slate-300')"
+            class="text-[10px] px-1.5 rounded font-medium tabular-nums"
+            :class="item.badgeColor || 'text-slate-500'"
           >
             {{ item.badge }}
           </span>
@@ -258,7 +252,7 @@ const handleItemClick = (item: NavItem) => {
           <!-- Floating Tooltip when collapsed -->
           <div
             v-if="collapsed"
-            class="absolute left-full ml-3 px-2.5 py-1.5 tf-card-elevated text-white text-xs rounded-md shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 flex items-center gap-2"
+            class="absolute left-full ml-3 px-2.5 py-1.5 tf-card-elevated text-white text-xs whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 flex items-center gap-2"
           >
             <span>{{ item.name }}</span>
             <span
@@ -272,26 +266,28 @@ const handleItemClick = (item: NavItem) => {
       </div>
     </div>
 
-    <!-- Bottom Status & System Health -->
+    <!-- Bot connection status (real) -->
     <div class="p-3 border-t border-[var(--tf-border)]">
-      <div
-        class="flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.04] backdrop-blur-md border border-white/10"
+      <button
+        type="button"
+        @click="emit('update:activeTab', 'bots')"
+        class="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-white/5 transition-colors cursor-pointer text-left"
         :class="collapsed ? 'justify-center' : ''"
-        title="Edge network: Cloudflare Workers | Operational"
+        :title="botStore.bot ? `@${botStore.bot.username} · ${botStore.isOnline ? 'Online' : 'Offline'}` : 'No bot connected'"
       >
-        <div class="relative flex h-2 w-2 shrink-0">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-        </div>
-
+        <span
+          class="w-2 h-2 rounded-full shrink-0"
+          :class="!botStore.bot ? 'bg-slate-500' : botStore.isOnline ? 'bg-emerald-500' : 'bg-rose-500'"
+        ></span>
         <div v-if="!collapsed" class="min-w-0 flex-1">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-semibold text-slate-200 truncate">System OK</span>
-            <span class="text-[9px] text-emerald-400 font-mono">18ms</span>
-          </div>
-          <p class="text-[9px] text-slate-400 truncate">Cloudflare Edge active</p>
+          <p class="text-xs font-medium text-slate-200 truncate">
+            {{ botStore.bot ? '@' + botStore.bot.username : 'No bot connected' }}
+          </p>
+          <p class="text-[11px] text-slate-500 truncate">
+            {{ !botStore.bot ? 'Add a bot to get started' : botStore.isOnline ? 'Online' : 'Offline' }}
+          </p>
         </div>
-      </div>
+      </button>
     </div>
   </aside>
 </template>
