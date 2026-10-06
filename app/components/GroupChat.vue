@@ -37,7 +37,9 @@ import {
   Upload,
   AlertTriangle,
   Zap,
-  Plus
+  Plus,
+  ExternalLink,
+  MousePointerClick
 } from 'lucide-vue-next'
 
 const groupsStore = useGroupsStore()
@@ -57,6 +59,9 @@ const rightPanelTab = ref<'info' | 'members' | 'media' | 'files' | 'links'>('inf
 const replyingTo = ref<ReplyTarget | null>(null)
 const showStickerPicker = ref(false)
 const showEmojiPicker = ref(false)
+const showButtonAttachment = ref(false)
+const attachedButtonText = ref('')
+const attachedButtonUrl = ref('')
 const stickerTab = ref<'featured' | 'recents' | 'custom'>('featured')
 const customStickerInput = ref('')
 const isEnablingWebhook = ref(false)
@@ -271,15 +276,28 @@ const handleSend = async () => {
   if (!text || !activeGroupId.value) return
   const groupId = activeGroupId.value
   const replyTo = replyingTo.value
+  const btnText = attachedButtonText.value.trim()
+  const btnUrl = attachedButtonUrl.value.trim()
+  const buttons = (btnText && btnUrl) ? [{ text: btnText, url: btnUrl }] : undefined
+
   draft.value = ''
   replyingTo.value = null
   showEmojiPicker.value = false
+  attachedButtonText.value = ''
+  attachedButtonUrl.value = ''
+  showButtonAttachment.value = false
+
   try {
-    await chatStore.sendMessage(groupId, text, replyTo)
+    await chatStore.sendMessage(groupId, text, replyTo, 'HTML', buttons)
     await scrollToBottom()
   } catch (error: any) {
     draft.value = text
     replyingTo.value = replyTo
+    if (btnText && btnUrl) {
+      attachedButtonText.value = btnText
+      attachedButtonUrl.value = btnUrl
+      showButtonAttachment.value = true
+    }
     toast.error(error.statusMessage || 'Failed to send message')
   }
 }
@@ -803,6 +821,28 @@ const handleSyncTelegram = async () => {
                 {{ msg.text }}
               </p>
 
+              <!-- Attached Clickable Buttons -->
+              <div v-if="msg.buttons && msg.buttons.length > 0" class="mt-2 pt-1.5 border-t border-white/10 flex flex-col gap-1.5">
+                <template v-for="(btn, bIdx) in msg.buttons" :key="bIdx">
+                  <a
+                    v-if="btn.url"
+                    :href="btn.url"
+                    target="_blank"
+                    rel="noopener"
+                    class="w-full text-center py-1.5 px-3 rounded-lg text-[11px] font-semibold bg-white/15 hover:bg-white/25 text-white transition flex items-center justify-center gap-1.5 border border-white/10 shadow-sm"
+                  >
+                    <span>{{ btn.text }}</span>
+                    <ExternalLink class="w-3 h-3 opacity-70" />
+                  </a>
+                  <div
+                    v-else
+                    class="w-full text-center py-1.5 px-3 rounded-lg text-[11px] font-semibold bg-white/15 text-white border border-white/10 flex items-center justify-center gap-1 shadow-sm"
+                  >
+                    <span>{{ btn.text }}</span>
+                  </div>
+                </template>
+              </div>
+
               <!-- Timestamp & Delivery Status -->
               <div
                 class="text-[9px] mt-1 flex items-center justify-end gap-1 opacity-70"
@@ -1002,6 +1042,43 @@ const handleSyncTelegram = async () => {
           </button>
         </div>
 
+        <!-- Button Attachment Drawer -->
+        <div v-if="showButtonAttachment" class="p-3 bg-[var(--tf-card-elevated)] border-t border-[var(--tf-border)] space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <MousePointerClick class="w-3.5 h-3.5 text-[#50a7ea]" />
+              <span>Attach Clickable Button to Outgoing Message</span>
+            </span>
+            <button type="button" @click="showButtonAttachment = false" class="text-slate-400 hover:text-white p-1">
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              v-model="attachedButtonText"
+              type="text"
+              placeholder="Button Label (e.g. 🌐 Visit Website or 📜 Rules)"
+              class="tf-input py-1.5 px-3 text-xs"
+            />
+            <input
+              v-model="attachedButtonUrl"
+              type="url"
+              placeholder="Button URL (e.g. https://t.me/... or https://...)"
+              class="tf-input py-1.5 px-3 text-xs"
+            />
+          </div>
+          <div v-if="attachedButtonText && attachedButtonUrl" class="flex items-center justify-between text-[10px] text-emerald-400 pt-1">
+            <span>✓ Button will be attached when sending</span>
+            <button
+              type="button"
+              @click="attachedButtonText = ''; attachedButtonUrl = ''"
+              class="text-rose-400 hover:underline cursor-pointer"
+            >
+              Clear button
+            </button>
+          </div>
+        </div>
+
         <!-- Composer Footer -->
         <form v-if="activeGroup" @submit.prevent="handleSend" class="p-3 bg-[var(--tf-card)] border-t border-[var(--tf-border)] flex items-end gap-2 shrink-0">
           <input ref="photoInput" type="file" accept="image/*" class="hidden" @change="handleMediaSelect($event, 'photo')" />
@@ -1046,6 +1123,17 @@ const handleSyncTelegram = async () => {
             title="Send Sticker"
           >
             <Sticker class="w-4 h-4" />
+          </button>
+
+          <!-- Attach Clickable Button Toggle -->
+          <button
+            type="button"
+            @click="showButtonAttachment = !showButtonAttachment"
+            class="p-2 rounded-lg cursor-pointer transition"
+            :class="showButtonAttachment || (attachedButtonText && attachedButtonUrl) ? 'text-[#2481cc] bg-[#2481cc]/15' : 'text-slate-400 hover:text-white hover:bg-white/5'"
+            title="Attach Clickable Inline Button"
+          >
+            <MousePointerClick class="w-4 h-4" />
           </button>
 
           <!-- Textarea Input -->

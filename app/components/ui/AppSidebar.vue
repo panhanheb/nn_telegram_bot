@@ -15,7 +15,8 @@ import {
   Settings,
   HelpCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MousePointerClick
 } from 'lucide-vue-next'
 import { useBotStore } from '../../stores/bot'
 import { useGroupsStore } from '../../stores/groups'
@@ -81,6 +82,13 @@ const navSections = computed<NavSection[]>(() => [
         name: 'Channels',
         icon: Radio,
         badge: channelsCount.value || undefined
+      },
+      {
+        id: 'menu',
+        name: 'Bot Menu',
+        icon: MousePointerClick,
+        badge: 'New',
+        badgeColor: 'bg-emerald-500/10 text-emerald-400'
       }
     ]
   },

@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   XCircle,
   Power,
-  X
+  X,
+  MousePointerClick
 } from 'lucide-vue-next'
 import { useBotStore } from '../stores/bot'
 import { useGroupsStore } from '../stores/groups'
@@ -225,7 +226,15 @@ const handleDeleteBot = async () => {
         </p>
       </div>
 
-      <div v-if="bot" class="flex items-center gap-2 self-start sm:self-auto">
+      <div v-if="bot" class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+        <button
+          type="button"
+          @click="emit('navigate', 'menu')"
+          class="tf-btn-primary px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-[#2481cc] to-blue-600 hover:from-[#1d70b3] hover:to-blue-700"
+        >
+          <MousePointerClick class="w-3.5 h-3.5" />
+          <span>Interactive Menu</span>
+        </button>
         <button
           type="button"
           @click="handleVerify"
@@ -339,6 +348,14 @@ const handleDeleteBot = async () => {
                   <ExternalLink class="w-3.5 h-3.5 text-slate-400" />
                   <span>Open in Telegram</span>
                 </a>
+                <button
+                  type="button"
+                  @click="menuOpen = false; emit('navigate', 'menu')"
+                  class="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-white/5 cursor-pointer text-[#50a7ea]"
+                >
+                  <MousePointerClick class="w-3.5 h-3.5" />
+                  <span>Configure Button Menu</span>
+                </button>
                 <button
                   type="button"
                   @click="handleVerify"

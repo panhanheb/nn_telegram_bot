@@ -8,6 +8,12 @@ import {
   TelegramUpdate
 } from './telegram'
 import { generateAiReply } from './ai'
+import {
+  buildInlineMenuKeyboard,
+  buildReplyMenuKeyboard,
+  buildMenuText,
+  handleCallbackQuery
+} from './bot-menu'
 
 // Escape text so it is safe inside an HTML-parse-mode Telegram message.
 function escapeHtml(text: string): string {
@@ -467,12 +473,13 @@ async function maybeAiReply(
   token: string,
   botUserId: number,
   botUsername: string | undefined,
-  msg: TelegramIncomingMessage
+  msg: TelegramIncomingMessage,
+  forcedPrompt?: string
 ) {
   if (msg.chat.type === 'channel') return
   if (msg.from?.id === botUserId || msg.from?.is_bot) return
 
-  const text = (msg.text || '').trim()
+  const text = (forcedPrompt || msg.text || '').trim()
   if (!text) return
 
   const settings = await db.getAiSettings()
@@ -480,8 +487,8 @@ async function maybeAiReply(
 
   const isPrivate = msg.chat.type === 'private'
 
-  // In groups: if replyOnMention is enabled, verify the bot was mentioned or replied to
-  if (!isPrivate) {
+  // In groups: if replyOnMention is enabled and not a forced prompt, verify bot mention or reply
+  if (!isPrivate && !forcedPrompt) {
     if (settings.replyOnMention && !mentionsBot(msg, botUserId, botUsername) && !isReplyToBot(msg, botUserId, botUsername)) {
       return
     }
@@ -510,7 +517,7 @@ async function maybeAiReply(
 
   // Remove the bot @mention from the prompt so it reads as a plain question.
   let prompt = text
-  if (botUsername) prompt = prompt.replace(new RegExp(`@${botUsername}`, 'ig'), '').trim()
+  if (botUsername && !forcedPrompt) prompt = prompt.replace(new RegExp(`@${botUsername}`, 'ig'), '').trim()
   if (!prompt) prompt = text
 
   // Provide a little prior context from this chat for coherence.
@@ -575,9 +582,9 @@ const HELP_TEXT = [
 ].join('\n')
 
 /**
- * Handle slash commands (/start, /help, /rules, /warns, /resetwarns).
- * Returns true for any slash-command message so it never reaches the AI step,
- * including commands addressed to other bots.
+ * Handle slash commands and interactive menu clicks.
+ * Returns true for any command or button click message so it never reaches
+ * standard moderation/AI steps.
  */
 async function handleBotCommand(
   token: string,
@@ -587,21 +594,15 @@ async function handleBotCommand(
   settings: ModerationSettings
 ): Promise<boolean> {
   const text = (msg.text || '').trim()
-  if (!text.startsWith('/')) return false
+  if (!text) return false
   if (msg.chat.type === 'channel') return true
-
-  // "/cmd@SomeBot args" -> command "cmd", target "SomeBot"
-  const match = text.match(/^\/([a-z0-9_]+)(?:@([a-z0-9_]+))?/i)
-  if (!match?.[1]) return true
-  const command = match[1].toLowerCase()
-  const target = match[2]
-  if (target && (!botUsername || target.toLowerCase() !== botUsername.toLowerCase())) return true
 
   const chatId = String(msg.chat.id)
   const isPrivate = msg.chat.type === 'private'
+  const menuSettings = await db.getMenuSettings()
 
-  const reply = async (html: string) => {
-    const sent = await sendTelegramMessage(token, chatId, html, 'HTML', msg.message_id)
+  const reply = async (html: string, replyMarkup?: any) => {
+    const sent = await sendTelegramMessage(token, chatId, html, 'HTML', msg.message_id, replyMarkup)
     const bot = await db.getBot()
     await db.addChatMessage({
       chatId,
@@ -617,16 +618,123 @@ async function handleBotCommand(
     })
   }
 
+  // Check if message text matches any configured Menu button (e.g. from reply keyboard)
+  const matchedBtn = menuSettings.buttons.find(b => b.text.trim() === text)
+  if (matchedBtn) {
+    if (matchedBtn.value === 'menu:rules' || matchedBtn.text.includes('Rules')) {
+      const rules = settings.rulesText?.trim() || 'No specific rules set for this chat. Please remain respectful and friendly!'
+      await reply(`📜 <b>Group rules</b>\n${escapeHtml(rules)}`)
+      return true
+    }
+    if (matchedBtn.value === 'menu:warns' || matchedBtn.text.includes('Warnings')) {
+      const count = await db.getWarningCount(chatId, msg.from?.id || 0)
+      const limit = settings.warnLimit > 0 ? `/${settings.warnLimit}` : ''
+      await reply(`⚠️ <b>Your Warnings:</b> ${count}${limit}`)
+      return true
+    }
+    if (matchedBtn.value === 'menu:status' || matchedBtn.text.includes('Status')) {
+      const groups = await db.getGroups()
+      const ai = await db.getAiSettings()
+      const bot = await db.getBot()
+      const statusText = [
+        '📊 <b>Bot System Status</b>',
+        '',
+        `🤖 Bot: <b>${escapeHtml(bot?.firstName || 'NN Bot')}</b> (@${escapeHtml(bot?.username || 'bot')})`,
+        `👥 Monitored Groups: <b>${groups.length}</b>`,
+        `🧠 AI Assistant: <b>${ai.enabled ? '🟢 Online' : '⚪ Disabled'}</b> (${escapeHtml(ai.model || 'Gemini')})`,
+        `⚡ Realtime Sync: <b>Operational ✅</b>`
+      ].join('\n')
+      await reply(statusText)
+      return true
+    }
+    if (matchedBtn.value === 'menu:ai' || matchedBtn.text.includes('Ask AI')) {
+      await reply('🤖 <b>Ask AI Assistant</b>\nSend your question with <code>/ask &lt;your question&gt;</code> or @-mention the bot in this chat!')
+      return true
+    }
+    if (matchedBtn.value === 'menu:help' || matchedBtn.text.includes('Help')) {
+      const inlineKb = buildInlineMenuKeyboard(menuSettings)
+      await reply(HELP_TEXT, inlineKb.length > 0 ? { inline_keyboard: inlineKb } : undefined)
+      return true
+    }
+    if (matchedBtn.type === 'url') {
+      const url = matchedBtn.value?.trim() || 'https://t.me'
+      await reply(`🌐 <b>Web Dashboard Link:</b>\n<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`)
+      return true
+    }
+  }
+
+  if (!text.startsWith('/')) return false
+
+  // "/cmd@SomeBot args" -> command "cmd", target "SomeBot"
+  const match = text.match(/^\/([a-z0-9_]+)(?:@([a-z0-9_]+))?/i)
+  if (!match?.[1]) return true
+  const command = match[1].toLowerCase()
+  const target = match[2]
+  if (target && (!botUsername || target.toLowerCase() !== botUsername.toLowerCase())) return true
+
+  const inlineKeyboard = buildInlineMenuKeyboard(menuSettings)
+  const replyKeyboard = isPrivate && menuSettings.persistentKeyboard ? buildReplyMenuKeyboard(menuSettings) : undefined
+
   try {
     switch (command) {
-      case 'start':
-      case 'help':
-        await reply(command === 'start' ? `👋 Hi! I help moderate and manage this group.\n\n${HELP_TEXT}` : HELP_TEXT)
+      case 'menu': {
+        const menuText = buildMenuText(msg.chat.title, isPrivate)
+        await reply(menuText, inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined)
         break
+      }
+
+      case 'start': {
+        const welcomeText = isPrivate
+          ? `👋 <b>Welcome!</b> I am your group moderation and assistant bot.\n\n${HELP_TEXT}`
+          : `👋 Hi! I help moderate and manage this group.\n\n${HELP_TEXT}`
+
+        if (menuSettings.inlineMenuOnStart && inlineKeyboard.length > 0) {
+          await reply(welcomeText, { inline_keyboard: inlineKeyboard })
+          if (replyKeyboard) {
+            await sendTelegramMessage(token, chatId, '⌨️ Bottom menu enabled.', 'HTML', undefined, replyKeyboard)
+          }
+        } else if (replyKeyboard) {
+          await reply(welcomeText, replyKeyboard)
+        } else {
+          await reply(welcomeText)
+        }
+        break
+      }
+
+      case 'help': {
+        await reply(HELP_TEXT, inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined)
+        break
+      }
 
       case 'rules':
         await reply(`📜 <b>Group rules</b>\n${escapeHtml(settings.rulesText || 'No rules have been set.')}`)
         break
+
+      case 'status': {
+        const groups = await db.getGroups()
+        const ai = await db.getAiSettings()
+        const bot = await db.getBot()
+        const statusText = [
+          '📊 <b>Bot System Status</b>',
+          '',
+          `🤖 Bot: <b>${escapeHtml(bot?.firstName || 'NN Bot')}</b> (@${escapeHtml(bot?.username || 'bot')})`,
+          `👥 Monitored Groups: <b>${groups.length}</b>`,
+          `🧠 AI Assistant: <b>${ai.enabled ? '🟢 Online' : '⚪ Disabled'}</b> (${escapeHtml(ai.model || 'Gemini')})`,
+          `⚡ Realtime Sync: <b>Operational ✅</b>`
+        ].join('\n')
+        await reply(statusText, inlineKeyboard.length > 0 ? { inline_keyboard: [[{ text: '📱 Open Menu', callback_data: 'menu:main' }]] } : undefined)
+        break
+      }
+
+      case 'ask': {
+        const query = text.replace(/^\/ask(?:@[a-z0-9_]+)?\s*/i, '').trim()
+        if (!query) {
+          await reply('🤖 <b>Ask AI Assistant</b>\nPlease provide your question after <code>/ask</code>, e.g.:\n<code>/ask How do I grow a Telegram group?</code>')
+          break
+        }
+        await maybeAiReply(token, botUserId, botUsername, msg, query)
+        break
+      }
 
       case 'warns': {
         if (isPrivate || !msg.from) {
@@ -665,7 +773,7 @@ async function handleBotCommand(
       }
 
       default:
-        if (isPrivate) await reply('Unknown command. Send /help to see what I can do.')
+        if (isPrivate) await reply('Unknown command. Send /help or /menu to see what I can do.')
     }
   } catch (err: any) {
     console.warn(`[Command] /${command} failed in ${chatId}: ${err.message}`)
@@ -677,15 +785,22 @@ async function handleBotCommand(
  * Handle a single Telegram update.
  *
  * Flow for a message:
+ *   0. Callback Q  - inline button clicks
  *   1. Discovery   - register/rename/migrate the chat
  *   2. Delete cmd  - "@bot delete" reply from an admin (stop)
  *   3. Moderation  - if the message is deleted, drop it from history and stop
  *   4. Edits       - update the stored copy only (no AI, no commands) and stop
  *   5. Record      - save the member and message to history
- *   6. Commands    - /help, /rules, /warns, /resetwarns (stop)
+ *   6. Commands    - /menu, /help, /rules, /warns, /resetwarns, /status, /ask (stop)
  *   7. AI reply    - Gemini answer when mentioned
  */
 export async function handleTelegramUpdate(token: string, botUserId: number, update: TelegramUpdate) {
+  // Handle inline keyboard callback queries immediately
+  if (update.callback_query) {
+    await handleCallbackQuery(token, botUserId, update.callback_query)
+    return
+  }
+
   const settings = await db.getModerationSettings()
   const bot = await db.getBot()
   const botUsername = bot?.username

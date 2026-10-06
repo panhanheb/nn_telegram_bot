@@ -12,6 +12,7 @@ import AnalyticsDashboard from '../components/AnalyticsDashboard.vue'
 import LogViewer from '../components/LogViewer.vue'
 import SettingsManager from '../components/SettingsManager.vue'
 import MemberManager from '../components/MemberManager.vue'
+import TelegramMenuManager from '../components/TelegramMenuManager.vue'
 
 const { activeTab, setTab } = useNavTab()
 </script>
@@ -29,6 +30,11 @@ const { activeTab, setTab } = useNavTab()
     <BotManager
       v-else-if="activeTab === 'bots'"
       @navigate="setTab"
+    />
+
+    <!-- Telegram Bot Button Menu -->
+    <TelegramMenuManager
+      v-else-if="activeTab === 'menu'"
     />
 
     <!-- Groups & Channels -->

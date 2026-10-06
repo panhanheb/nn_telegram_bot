@@ -90,6 +90,16 @@ export interface TelegramChatMemberUpdated {
   }
 }
 
+export interface TelegramCallbackQuery {
+  id: string
+  from: TelegramUser
+  message?: TelegramIncomingMessage
+  inline_message_id?: string
+  chat_instance?: string
+  data?: string
+  game_short_name?: string
+}
+
 export interface TelegramUpdate {
   update_id: number
   message?: TelegramIncomingMessage
@@ -97,7 +107,9 @@ export interface TelegramUpdate {
   channel_post?: TelegramIncomingMessage
   edited_channel_post?: TelegramIncomingMessage
   my_chat_member?: TelegramChatMemberUpdated
+  callback_query?: TelegramCallbackQuery
 }
+
 
 // Remove any webhook so long polling (getUpdates) is allowed. This app uses
 // polling, so it's safe to clear a stale webhook on startup.
@@ -134,7 +146,7 @@ export async function setTelegramWebhook(
       body: {
         url,
         secret_token: secretToken,
-        allowed_updates: ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'my_chat_member'],
+        allowed_updates: ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'callback_query'],
         drop_pending_updates: false
       }
     }
@@ -170,7 +182,7 @@ export async function getTelegramUpdates(
       body: {
         offset,
         timeout,
-        allowed_updates: ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'my_chat_member']
+        allowed_updates: ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'callback_query']
       },
       timeout: (timeout + 10) * 1000
     }
@@ -302,14 +314,16 @@ export async function sendTelegramMessage(
   chatId: string,
   text: string,
   parseMode?: 'HTML' | 'MarkdownV2',
-  replyToMessageId?: number
+  replyToMessageId?: number,
+  replyMarkup?: any
 ): Promise<{ message_id: number }> {
   const payload: any = {
     chat_id: chatId,
     text: text,
     ...(replyToMessageId
       ? { reply_parameters: { message_id: replyToMessageId, allow_sending_without_reply: true } }
-      : {})
+      : {}),
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
   }
   if (parseMode) {
     payload.parse_mode = parseMode
@@ -349,7 +363,8 @@ export async function sendTelegramSticker(
   token: string,
   chatId: string,
   stickerFileId: string,
-  replyToMessageId?: number
+  replyToMessageId?: number,
+  replyMarkup?: any
 ): Promise<{ message_id: number }> {
   try {
     const response = await $fetch<{ ok: boolean; result: { message_id: number } }>(
@@ -361,7 +376,8 @@ export async function sendTelegramSticker(
           sticker: stickerFileId,
           ...(replyToMessageId
             ? { reply_parameters: { message_id: replyToMessageId, allow_sending_without_reply: true } }
-            : {})
+            : {}),
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {})
         }
       }
     )
@@ -387,7 +403,8 @@ async function sendTelegramMediaUpload(
   media: Blob,
   fileName: string,
   caption?: string,
-  replyToMessageId?: number
+  replyToMessageId?: number,
+  replyMarkup?: any
 ): Promise<TelegramSentMediaMessage> {
   try {
     // Detach incoming stream buffer into memory for Cloudflare Workers compatibility
@@ -408,6 +425,9 @@ async function sendTelegramMediaUpload(
     if (replyToMessageId && Number.isFinite(replyToMessageId)) {
       form.append('reply_parameters', JSON.stringify({ message_id: replyToMessageId, allow_sending_without_reply: true }))
     }
+    if (replyMarkup) {
+      form.append('reply_markup', typeof replyMarkup === 'string' ? replyMarkup : JSON.stringify(replyMarkup))
+    }
 
     // Native fetch ensures the boundary parameter is automatically and correctly calculated
     const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -426,21 +446,21 @@ async function sendTelegramMediaUpload(
 }
 
 export function sendTelegramPhotoUpload(
-  token: string, chatId: string, photo: Blob, fileName: string, caption?: string, replyToMessageId?: number
+  token: string, chatId: string, photo: Blob, fileName: string, caption?: string, replyToMessageId?: number, replyMarkup?: any
 ) {
-  return sendTelegramMediaUpload(token, chatId, 'sendPhoto', photo, fileName, caption, replyToMessageId)
+  return sendTelegramMediaUpload(token, chatId, 'sendPhoto', photo, fileName, caption, replyToMessageId, replyMarkup)
 }
 
 export function sendTelegramVideoUpload(
-  token: string, chatId: string, video: Blob, fileName: string, caption?: string, replyToMessageId?: number
+  token: string, chatId: string, video: Blob, fileName: string, caption?: string, replyToMessageId?: number, replyMarkup?: any
 ) {
-  return sendTelegramMediaUpload(token, chatId, 'sendVideo', video, fileName, caption, replyToMessageId)
+  return sendTelegramMediaUpload(token, chatId, 'sendVideo', video, fileName, caption, replyToMessageId, replyMarkup)
 }
 
 export function sendTelegramStickerUpload(
-  token: string, chatId: string, sticker: Blob, fileName = 'sticker.webp', replyToMessageId?: number
+  token: string, chatId: string, sticker: Blob, fileName = 'sticker.webp', replyToMessageId?: number, replyMarkup?: any
 ) {
-  return sendTelegramMediaUpload(token, chatId, 'sendSticker', sticker, fileName, undefined, replyToMessageId)
+  return sendTelegramMediaUpload(token, chatId, 'sendSticker', sticker, fileName, undefined, replyToMessageId, replyMarkup)
 }
 
 export async function sendTelegramPhoto(
@@ -448,19 +468,22 @@ export async function sendTelegramPhoto(
   chatId: string,
   photoUrl: string,
   caption?: string,
-  parseMode: 'HTML' | 'MarkdownV2' = 'HTML'
+  parseMode: 'HTML' | 'MarkdownV2' = 'HTML',
+  replyMarkup?: any
 ): Promise<{ message_id: number }> {
   try {
+    const payload: any = {
+      chat_id: chatId,
+      photo: photoUrl,
+      caption: caption,
+      parse_mode: parseMode,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+    }
     const response = await $fetch<{ ok: boolean; result: { message_id: number } }>(
       `https://api.telegram.org/bot${token}/sendPhoto`,
       {
         method: 'POST',
-        body: {
-          chat_id: chatId,
-          photo: photoUrl,
-          caption: caption,
-          parse_mode: parseMode
-        }
+        body: payload
       }
     )
     if (!response.ok) {
@@ -478,19 +501,22 @@ export async function sendTelegramVideo(
   chatId: string,
   videoUrl: string,
   caption?: string,
-  parseMode: 'HTML' | 'MarkdownV2' = 'HTML'
+  parseMode: 'HTML' | 'MarkdownV2' = 'HTML',
+  replyMarkup?: any
 ): Promise<{ message_id: number }> {
   try {
+    const payload: any = {
+      chat_id: chatId,
+      video: videoUrl,
+      caption: caption,
+      parse_mode: parseMode,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+    }
     const response = await $fetch<{ ok: boolean; result: { message_id: number } }>(
       `https://api.telegram.org/bot${token}/sendVideo`,
       {
         method: 'POST',
-        body: {
-          chat_id: chatId,
-          video: videoUrl,
-          caption: caption,
-          parse_mode: parseMode
-        }
+        body: payload
       }
     )
     if (!response.ok) {
@@ -508,19 +534,22 @@ export async function sendTelegramDocument(
   chatId: string,
   documentUrl: string,
   caption?: string,
-  parseMode: 'HTML' | 'MarkdownV2' = 'HTML'
+  parseMode: 'HTML' | 'MarkdownV2' = 'HTML',
+  replyMarkup?: any
 ): Promise<{ message_id: number }> {
   try {
+    const payload: any = {
+      chat_id: chatId,
+      document: documentUrl,
+      caption: caption,
+      parse_mode: parseMode,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+    }
     const response = await $fetch<{ ok: boolean; result: { message_id: number } }>(
       `https://api.telegram.org/bot${token}/sendDocument`,
       {
         method: 'POST',
-        body: {
-          chat_id: chatId,
-          document: documentUrl,
-          caption: caption,
-          parse_mode: parseMode
-        }
+        body: payload
       }
     )
     if (!response.ok) {
@@ -530,6 +559,140 @@ export async function sendTelegramDocument(
   } catch (error: any) {
     const message = error.data?.description || error.message || 'Unknown error'
     throw new Error(`Telegram Send Document Failed: ${message}`)
+  }
+}
+
+export async function answerCallbackQuery(
+  token: string,
+  callbackQueryId: string,
+  text?: string,
+  showAlert = false
+): Promise<boolean> {
+  try {
+    const payload: any = { callback_query_id: callbackQueryId }
+    if (text) {
+      payload.text = text
+      payload.show_alert = showAlert
+    }
+    const response = await $fetch<{ ok: boolean }>(
+      `https://api.telegram.org/bot${token}/answerCallbackQuery`,
+      { method: 'POST', body: payload }
+    )
+    return !!response.ok
+  } catch (error: any) {
+    console.error('answerCallbackQuery error:', error?.message || error)
+    return false
+  }
+}
+
+export async function editTelegramMessageText(
+  token: string,
+  chatId: string | number,
+  messageId: number,
+  text: string,
+  parseMode?: 'HTML' | 'MarkdownV2',
+  replyMarkup?: any
+): Promise<boolean> {
+  const payload: any = {
+    chat_id: chatId,
+    message_id: messageId,
+    text: text,
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  }
+  if (parseMode) payload.parse_mode = parseMode
+
+  try {
+    const response = await $fetch<{ ok: boolean }>(
+      `https://api.telegram.org/bot${token}/editMessageText`,
+      { method: 'POST', body: payload }
+    )
+    return !!response.ok
+  } catch (error: any) {
+    if (parseMode && (error.message?.includes("can't parse entities") || error.data?.description?.includes("can't parse entities"))) {
+      delete payload.parse_mode
+      try {
+        const retry = await $fetch<{ ok: boolean }>(
+          `https://api.telegram.org/bot${token}/editMessageText`,
+          { method: 'POST', body: payload }
+        )
+        return !!retry.ok
+      } catch {}
+    }
+    console.error('editTelegramMessageText error:', error?.message || error)
+    return false
+  }
+}
+
+export interface TelegramBotCommand {
+  command: string
+  description: string
+}
+
+export async function setMyCommands(
+  token: string,
+  commands: TelegramBotCommand[]
+): Promise<boolean> {
+  try {
+    const response = await $fetch<{ ok: boolean }>(
+      `https://api.telegram.org/bot${token}/setMyCommands`,
+      { method: 'POST', body: { commands } }
+    )
+    return !!response.ok
+  } catch (error: any) {
+    const msg = error.data?.description || error.message || 'Unknown error'
+    throw new Error(`setMyCommands failed: ${msg}`)
+  }
+}
+
+export async function getMyCommands(token: string): Promise<TelegramBotCommand[]> {
+  try {
+    const response = await $fetch<{ ok: boolean; result: TelegramBotCommand[] }>(
+      `https://api.telegram.org/bot${token}/getMyCommands`,
+      { method: 'GET' }
+    )
+    return response.result || []
+  } catch {
+    return []
+  }
+}
+
+export interface TelegramMenuButton {
+  type: 'default' | 'commands' | 'web_app'
+  text?: string
+  web_app?: { url: string }
+}
+
+export async function setChatMenuButton(
+  token: string,
+  menuButton?: TelegramMenuButton,
+  chatId?: string | number
+): Promise<boolean> {
+  try {
+    const payload: any = {}
+    if (chatId) payload.chat_id = chatId
+    if (menuButton) payload.menu_button = menuButton
+    const response = await $fetch<{ ok: boolean }>(
+      `https://api.telegram.org/bot${token}/setChatMenuButton`,
+      { method: 'POST', body: payload }
+    )
+    return !!response.ok
+  } catch (error: any) {
+    const msg = error.data?.description || error.message || 'Unknown error'
+    throw new Error(`setChatMenuButton failed: ${msg}`)
+  }
+}
+
+export async function getChatMenuButton(token: string, chatId?: string | number): Promise<TelegramMenuButton> {
+  try {
+    const payload: any = {}
+    if (chatId) payload.chat_id = chatId
+    const response = await $fetch<{ ok: boolean; result: TelegramMenuButton }>(
+      `https://api.telegram.org/bot${token}/getChatMenuButton`,
+      { method: 'POST', body: payload }
+    )
+    return response.result
+  } catch {
+    return { type: 'default' }
   }
 }
 

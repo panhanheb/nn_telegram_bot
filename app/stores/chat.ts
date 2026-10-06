@@ -33,6 +33,7 @@ export interface ChatMessage {
   mediaEmoji?: string
   mediaFileName?: string
   stickerFormat?: 'static' | 'animated' | 'video'
+  buttons?: Array<{ text: string; url?: string; callbackData?: string }>
 }
 
 export interface ReplyTarget {
@@ -124,7 +125,8 @@ export const useChatStore = defineStore('chat', {
       groupId: string,
       message: string,
       replyTo?: ReplyTarget | null,
-      parseMode: 'HTML' | 'MarkdownV2' = 'HTML'
+      parseMode: 'HTML' | 'MarkdownV2' = 'HTML',
+      buttons?: Array<{ text: string; url?: string; callbackData?: string }>
     ) {
       this.isSending = true
       try {
@@ -137,7 +139,8 @@ export const useChatStore = defineStore('chat', {
               parseMode,
               replyToMessageId: replyTo?.messageId,
               replyToName: replyTo?.name,
-              replyToText: replyTo?.text
+              replyToText: replyTo?.text,
+              buttons: buttons && buttons.length > 0 ? buttons : undefined
             }
           }
         )

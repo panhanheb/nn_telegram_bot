@@ -10,7 +10,24 @@ const MEMBERS_PATH = 'members.json'
 const MESSAGES_PATH = 'messages.json'
 const AI_PATH = 'ai.json'
 const WARNINGS_PATH = 'warnings.json'
+const MENU_PATH = 'menu.json'
 const LEGACY_BOTS_PATH = 'bots.json'
+
+export interface BotMenuButton {
+  id: string
+  text: string
+  type: 'command' | 'url' | 'callback'
+  value: string
+}
+
+export interface BotMenuSettings {
+  enabled: boolean
+  persistentKeyboard: boolean
+  inlineMenuOnStart: boolean
+  chatMenuButton: 'commands' | 'web_app' | 'default'
+  webAppUrl?: string
+  buttons: BotMenuButton[]
+}
 
 // Interfaces
 export interface JSONUser {
@@ -151,6 +168,7 @@ export interface JSONChatMessage {
   mediaEmoji?: string
   mediaFileName?: string
   stickerFormat?: 'static' | 'animated' | 'video'
+  buttons?: Array<{ text: string; url?: string; callbackData?: string }>
 }
 
 export interface JSONLog {
@@ -486,6 +504,39 @@ export const db = {
     const current = await this.getAiSettings()
     const merged: AiSettings = { ...current, ...updates }
     await writeJsonFile(AI_PATH, merged)
+    return merged
+  },
+
+  // Telegram Interactive Button Menu Settings
+  async getMenuSettings(): Promise<BotMenuSettings> {
+    const defaults: BotMenuSettings = {
+      enabled: true,
+      persistentKeyboard: true,
+      inlineMenuOnStart: true,
+      chatMenuButton: 'commands',
+      webAppUrl: '',
+      buttons: [
+        { id: '1', text: '🤖 Ask AI', type: 'callback', value: 'menu:ai' },
+        { id: '2', text: '📜 Group Rules', type: 'callback', value: 'menu:rules' },
+        { id: '3', text: '⚠️ My Warnings', type: 'callback', value: 'menu:warns' },
+        { id: '4', text: '📊 Bot Status', type: 'callback', value: 'menu:status' },
+        { id: '5', text: '🌐 Web Dashboard', type: 'url', value: '' },
+        { id: '6', text: '❓ Help & Info', type: 'callback', value: 'menu:help' }
+      ]
+    }
+    const current = await readJsonFile<BotMenuSettings | null>(MENU_PATH, null)
+    if (!current) return defaults
+    return {
+      ...defaults,
+      ...current,
+      buttons: Array.isArray(current.buttons) && current.buttons.length > 0 ? current.buttons : defaults.buttons
+    }
+  },
+
+  async saveMenuSettings(updates: Partial<BotMenuSettings>): Promise<BotMenuSettings> {
+    const current = await this.getMenuSettings()
+    const merged: BotMenuSettings = { ...current, ...updates }
+    await writeJsonFile(MENU_PATH, merged)
     return merged
   },
 

@@ -59,18 +59,38 @@ export default defineEventHandler(async (event) => {
   const replyToMessageId =
     typeof body.replyToMessageId === 'number' && body.replyToMessageId > 0 ? body.replyToMessageId : undefined
 
+  // Parse optional inline buttons (e.g. [{ text: 'Visit Website', url: 'https://...' }])
+  let customButtons: Array<{ text: string; url?: string; callbackData?: string }> = []
+  if (typeof body.buttons === 'string') {
+    try {
+      const parsed = JSON.parse(body.buttons)
+      if (Array.isArray(parsed)) customButtons = parsed
+    } catch {}
+  } else if (Array.isArray(body.buttons)) {
+    customButtons = body.buttons
+  }
+
+  let replyMarkup: any = undefined
+  if (customButtons.length > 0) {
+    const inline_keyboard = customButtons.map(b => [{
+      text: b.text,
+      ...(b.url ? { url: b.url } : { callback_data: b.callbackData || 'menu:main' })
+    }])
+    replyMarkup = { inline_keyboard }
+  }
+
   let response: { message_id: number; photo?: Array<{ file_id: string }>; video?: { file_id: string; mime_type?: string }; sticker?: { file_id: string; emoji?: string } }
   try {
     const token = await decryptToken(bot.token)
     response = mediaType === 'photo' && uploadedMedia
-      ? await sendTelegramPhotoUpload(token, group.chatId, uploadedMedia, fileName, text, replyToMessageId)
+      ? await sendTelegramPhotoUpload(token, group.chatId, uploadedMedia, fileName, text, replyToMessageId, replyMarkup)
       : mediaType === 'video' && uploadedMedia
-        ? await sendTelegramVideoUpload(token, group.chatId, uploadedMedia, fileName, text, replyToMessageId)
+        ? await sendTelegramVideoUpload(token, group.chatId, uploadedMedia, fileName, text, replyToMessageId, replyMarkup)
       : mediaType === 'sticker' && uploadedMedia
-        ? await sendTelegramStickerUpload(token, group.chatId, uploadedMedia, fileName, replyToMessageId)
+        ? await sendTelegramStickerUpload(token, group.chatId, uploadedMedia, fileName, replyToMessageId, replyMarkup)
       : stickerFileId
-        ? await sendTelegramSticker(token, group.chatId, stickerFileId, replyToMessageId)
-      : await sendTelegramMessage(token, group.chatId, text, parseMode, replyToMessageId)
+        ? await sendTelegramSticker(token, group.chatId, stickerFileId, replyToMessageId, replyMarkup)
+      : await sendTelegramMessage(token, group.chatId, text, parseMode, replyToMessageId, replyMarkup)
   } catch (err: any) {
     await db.createLog(group.id, group.name, null, text, 'FAILED', err.message)
     throw createError({
@@ -92,6 +112,7 @@ export default defineEventHandler(async (event) => {
     replyToMessageId: replyToMessageId ?? null,
     replyToName: typeof body.replyToName === 'string' ? body.replyToName : undefined,
     replyToText: typeof body.replyToText === 'string' ? body.replyToText : undefined,
+    buttons: customButtons.length > 0 ? customButtons : undefined,
     ...(stickerFileId || (mediaType === 'sticker' && response.sticker)
       ? {
           mediaType: 'sticker' as const,
