@@ -167,7 +167,7 @@ export default defineEventHandler(async (event) => {
         let permissionsVerified = false
         try {
           const admins = await getChatAdministrators(token, g.chatId)
-          const botAdmin = admins.find((a: any) => a.user.id === botUserId)
+          const botAdmin = admins.find((a: any) => a.user.id === botUserId) as any
           if (botAdmin) {
             isAdmin = true
             permissionsVerified = !!botAdmin.can_delete_messages

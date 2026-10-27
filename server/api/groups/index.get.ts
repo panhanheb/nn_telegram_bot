@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
         const bot = await db.getBot()
         if (bot && bot.active) {
           const token = await decryptToken(bot.token)
-          const botUserId = parseInt(token.split(':')[0], 10)
+          const botUserId = parseInt(token.split(':')[0] || '0', 10)
           let hasChanges = false
 
           await Promise.allSettled(
@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
                 // Check admin status
                 try {
                   const admins = await getChatAdministrators(token, g.chatId)
-                  const botAdmin = admins.find((a: any) => a.user.id === botUserId)
+                  const botAdmin = admins.find((a: any) => a.user.id === botUserId) as any
                   updates.isAdmin = !!botAdmin
                   updates.permissionsVerified = !!botAdmin?.can_delete_messages
                 } catch {}

@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
     }
 
     const settings = await db.getMenuSettings()
-    const publicUrl = (config.public?.appUrl || process.env.NUXT_PUBLIC_URL || '').trim()
+    const publicUrl = String(config.publicUrl || process.env.PUBLIC_URL || '').trim()
 
     const result = await syncBotMenuToTelegram(token, settings, publicUrl)
-    return { ok: true, ...result }
+    return { ...result }
   } catch (error: any) {
     throw createError({
       statusCode: 500,

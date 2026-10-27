@@ -29,20 +29,30 @@
     "postinstall": "nuxt prepare",
     "deploy": "wrangler deploy .output/server/index.mjs --assets .output/public",
     "preview:cf": "wrangler dev .output/server/index.mjs --assets .output/public",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.5.1",
     "@vueuse/core": "^10.9.0",
     "@vueuse/nuxt": "^10.9.0",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
     "lucide-vue-next": "^0.368.0",
     "nuxt": "^4.4.8",
     "pinia": "^2.1.7",
     "vue": "^3.5.39",
-    "vue-router": "^5.1.0"
+    "vue-router": "^5.1.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nuxtjs/tailwindcss": "^6.11.4",
-    "@types/node": "^20.12.7"
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20.12.7",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "~5.7.0",
+    "vitest": "^5.0.5",
+    "vue-tsc": "^3.3.13"
   }
 }

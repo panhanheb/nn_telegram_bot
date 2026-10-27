@@ -132,7 +132,10 @@ const hasAnyActivity = computed(() => {
 })
 
 const dayLabel = (iso: string, long = false) => {
-  const [y, m, d] = iso.split('-').map(Number)
+  const parts = iso.split('-').map(Number)
+  const y = parts[0] ?? 1970
+  const m = parts[1] ?? 1
+  const d = parts[2] ?? 1
   const date = new Date(y, m - 1, d)
   return long
     ? date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -140,6 +143,10 @@ const dayLabel = (iso: string, long = false) => {
       ? date.toLocaleDateString(undefined, { weekday: 'short' })
       : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+const hoveredItem = computed(() => {
+  if (hoveredIndex.value === null) return null
+  return chartData.value[hoveredIndex.value] || null
+})
 // Show every label for 7 days, roughly every 5th for 30 days.
 const showTick = (i: number) => rangeDays.value <= 7 || i % 5 === 0 || i === chartData.value.length - 1
 
@@ -524,10 +531,10 @@ onUnmounted(() => {
 
         <!-- Hover details -->
         <div
-          v-if="hoveredIndex !== null && chartData[hoveredIndex]"
+          v-if="hoveredItem"
           class="absolute top-6 right-0 tf-card-elevated px-3 py-2 text-xs pointer-events-none z-10 space-y-1 min-w-[180px]"
         >
-          <p class="font-medium text-white">{{ dayLabel(chartData[hoveredIndex].date, true) }}</p>
+          <p class="font-medium text-white">{{ dayLabel(hoveredItem.date, true) }}</p>
           <div
             v-for="s in seriesOptions"
             :key="s.key"
@@ -536,11 +543,11 @@ onUnmounted(() => {
             <span class="inline-flex items-center gap-1.5 text-slate-400">
               <span class="w-1.5 h-1.5 rounded-full" :class="s.color"></span>{{ s.label }}
             </span>
-            <span class="tabular-nums text-white">{{ fmt(chartData[hoveredIndex][s.key]) }}</span>
+            <span class="tabular-nums text-white">{{ fmt(hoveredItem[s.key]) }}</span>
           </div>
-          <div v-if="chartData[hoveredIndex].outboundFailed > 0" class="flex items-center justify-between gap-4">
+          <div v-if="hoveredItem.outboundFailed > 0" class="flex items-center justify-between gap-4">
             <span class="text-rose-400">Failed sends</span>
-            <span class="tabular-nums text-rose-400">{{ fmt(chartData[hoveredIndex].outboundFailed) }}</span>
+            <span class="tabular-nums text-rose-400">{{ fmt(hoveredItem.outboundFailed) }}</span>
           </div>
         </div>
 

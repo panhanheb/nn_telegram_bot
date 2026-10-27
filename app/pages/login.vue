@@ -1,8 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from '../composables/useToast'
-import { User, Lock, Send, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-vue-next'
+import {
+  User,
+  Lock,
+  Send,
+  Loader2,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Sparkles,
+  Server,
+  Cloud
+} from 'lucide-vue-next'
 import ToastList from '../components/ToastList.vue'
 
 definePageMeta({
@@ -12,166 +23,185 @@ definePageMeta({
 const authStore = useAuthStore()
 const toast = useToast()
 
+const isSetupMode = ref(false)
 const username = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const showPassword = ref(false)
 const isLoading = ref(false)
 
-const fillCredentials = (u: string, p: string) => {
-  username.value = u
-  password.value = p
-}
-
-const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    toast.error('Please enter both username and password')
-    return
-  }
-
+onMounted(async () => {
   isLoading.value = true
   try {
-    await authStore.login(username.value, password.value)
-    toast.success('Successfully logged in to TeleFlow Pro')
-    await navigateTo('/')
-  } catch (err: any) {
-    const message = err.data?.statusMessage || err.data?.message || err.statusMessage || err.message || 'Authentication failed. Please check credentials.'
-    toast.error(message)
+    const needed = await authStore.checkSetupStatus()
+    isSetupMode.value = needed
   } finally {
     isLoading.value = false
   }
+})
+
+const handleAuth = async () => {
+  if (!username.value.trim() || !password.value) {
+    toast.error('Please fill in all required fields')
+    return
+  }
+
+  if (isSetupMode.value) {
+    if (password.value.length < 8) {
+      toast.error('Password must be at least 8 characters long')
+      return
+    }
+    if (password.value !== confirmPassword.value) {
+      toast.error('Passwords do not match')
+      return
+    }
+
+    isLoading.value = true
+    try {
+      await authStore.setupOwner(username.value, password.value)
+      toast.success('Owner account successfully created! Welcome to TeleFlow.')
+      await navigateTo('/')
+    } catch (err: any) {
+      const message = err.data?.statusMessage || err.statusMessage || err.message || 'Setup failed'
+      toast.error(message)
+    } finally {
+      isLoading.value = false
+    }
+  } else {
+    isLoading.value = true
+    try {
+      await authStore.login(username.value, password.value)
+      toast.success('Signed in successfully')
+      await navigateTo('/')
+    } catch (err: any) {
+      const message = err.data?.statusMessage || err.statusMessage || err.message || 'Authentication failed'
+      toast.error(message)
+    } finally {
+      isLoading.value = false
+    }
+  }
 }
-const isDev = import.meta.dev
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--tf-bg)] text-[var(--tf-text)] flex items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+  <div class="min-h-screen bg-[#0e1621] text-[#f5f5f5] flex items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+    <!-- Telegram Subtle Ambient Glow -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-[#2481cc]/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-[#2b5278]/20 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="relative z-10 w-full max-w-4xl tf-card-elevated overflow-hidden grid grid-cols-1 md:grid-cols-2">
-      <!-- Left: Brand Panel -->
-      <div class="hidden md:flex flex-col justify-between p-10 bg-[var(--tf-surface-subtle)] border-r border-[var(--tf-border)] relative">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-[#2481cc] flex items-center justify-center text-white">
-            <Send class="w-4 h-4 transform rotate-[15deg] -translate-x-0.5" />
-          </div>
-          <div>
-            <h1 class="text-sm font-semibold text-white">TeleFlow</h1>
-            <p class="text-[11px] text-slate-400">Telegram bot management</p>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <h2 class="text-2xl font-semibold text-white leading-snug max-w-xs">
-            Run your Telegram groups from one place.
-          </h2>
-          <p class="text-slate-400 text-sm leading-relaxed">
-            Schedule broadcasts, moderate chats and reply with AI.
-          </p>
-
-          <div class="flex items-center gap-4 text-xs text-slate-400 pt-2">
-            <div class="flex items-center gap-1.5">
-              <ShieldCheck class="w-4 h-4 text-slate-400" />
-              <span>Encrypted bot tokens</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-[#2481cc]"></span>
-              <span>Cloudflare Workers</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="text-[11px] text-slate-500">
-          &copy; {{ new Date().getFullYear() }} TeleFlow
-        </div>
+    <div class="relative z-10 w-full max-w-[440px] bg-[#17212b] border border-[#242f3d] rounded-2xl shadow-2xl p-8 sm:p-10 flex flex-col items-center">
+      <!-- Telegram Animated Paper Plane Icon -->
+      <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-[#2481cc] to-[#2AABEE] shadow-lg shadow-[#2481cc]/25 flex items-center justify-center text-white mb-6 transform hover:scale-105 transition-transform duration-300">
+        <Send class="w-12 h-12 transform rotate-12 -translate-x-1" />
       </div>
 
-      <!-- Right: Form Panel -->
-      <div class="p-8 sm:p-10 flex flex-col justify-center bg-transparent">
-        <!-- Mobile Logo Header -->
-        <div class="flex items-center gap-3 md:hidden mb-8">
-          <div class="w-8 h-8 rounded-lg bg-[#2481cc] flex items-center justify-center text-white">
-            <Send class="w-3.5 h-3.5 transform rotate-[15deg] -translate-x-0.5" />
-          </div>
-          <div>
-            <h1 class="text-sm font-semibold text-white">TeleFlow</h1>
+      <!-- Header Titles -->
+      <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold tracking-tight text-white mb-2 flex items-center justify-center gap-2">
+          <span>TeleFlow</span>
+          <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#2481cc]/20 text-[#2AABEE] border border-[#2481cc]/30">
+            Bot API 10.3
+          </span>
+        </h1>
+        <p class="text-sm text-[#7f91a4] leading-relaxed">
+          <template v-if="isSetupMode">
+            Initialize your primary Owner account to get started
+          </template>
+          <template v-else>
+            Sign in to your Telegram bot management workspace
+          </template>
+        </p>
+      </div>
+
+      <!-- Setup Notice Banner -->
+      <div v-if="isSetupMode" class="w-full mb-6 p-3.5 rounded-xl bg-[#2481cc]/10 border border-[#2481cc]/30 flex items-start gap-3 text-xs text-[#a2d2fb]">
+        <Sparkles class="w-4 h-4 text-[#2AABEE] mt-0.5 shrink-0" />
+        <p class="leading-relaxed">
+          <strong>First-Time Setup:</strong> No administrator exists yet. The credentials created here will hold permanent <strong>Owner</strong> privileges.
+        </p>
+      </div>
+
+      <!-- Auth Form -->
+      <form @submit.prevent="handleAuth" class="w-full space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-[#7f91a4] mb-1.5 ml-1">Username</label>
+          <div class="relative">
+            <User class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7f91a4] pointer-events-none" />
+            <input
+              v-model="username"
+              type="text"
+              placeholder="admin"
+              class="w-full pl-10 pr-4 py-2.5 bg-[#0e1621] border border-[#242f3d] rounded-xl text-sm text-white placeholder-[#4e5d6d] focus:outline-none focus:border-[#2481cc] focus:ring-2 focus:ring-[#2481cc]/25 transition-all"
+              required
+              autocomplete="username"
+            />
           </div>
         </div>
 
-        <div class="mb-6">
-          <h3 class="text-xl font-semibold text-white">Sign in</h3>
-          <p class="text-sm text-slate-400 mt-1">Use your administrator account.</p>
+        <div>
+          <label class="block text-xs font-medium text-[#7f91a4] mb-1.5 ml-1">Password</label>
+          <div class="relative">
+            <Lock class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7f91a4] pointer-events-none" />
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="••••••••••••"
+              class="w-full pl-10 pr-10 py-2.5 bg-[#0e1621] border border-[#242f3d] rounded-xl text-sm text-white placeholder-[#4e5d6d] focus:outline-none focus:border-[#2481cc] focus:ring-2 focus:ring-[#2481cc]/25 transition-all"
+              required
+              :autocomplete="isSetupMode ? 'new-password' : 'current-password'"
+            />
+            <button
+              type="button"
+              @click="showPassword = !showPassword"
+              class="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#7f91a4] hover:text-white transition-colors"
+              tabindex="-1"
+            >
+              <EyeOff v-if="showPassword" class="w-4 h-4" />
+              <Eye v-else class="w-4 h-4" />
+            </button>
+          </div>
+          <p v-if="isSetupMode" class="text-[11px] text-[#7f91a4] mt-1 ml-1">Must be at least 8 characters</p>
         </div>
 
-        <form @submit.prevent="handleLogin" class="space-y-4 text-xs">
-          <div>
-            <label class="block font-medium text-slate-300 mb-1.5 text-xs">Username</label>
-            <div class="relative">
-              <User class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <input
-                v-model="username"
-                type="text"
-                placeholder="admin"
-                class="tf-input w-full pl-10 pr-4 py-2.5 text-sm text-white"
-                required
-              />
-            </div>
+        <div v-if="isSetupMode">
+          <label class="block text-xs font-medium text-[#7f91a4] mb-1.5 ml-1">Confirm Password</label>
+          <div class="relative">
+            <Lock class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7f91a4] pointer-events-none" />
+            <input
+              v-model="confirmPassword"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="••••••••••••"
+              class="w-full pl-10 pr-4 py-2.5 bg-[#0e1621] border border-[#242f3d] rounded-xl text-sm text-white placeholder-[#4e5d6d] focus:outline-none focus:border-[#2481cc] focus:ring-2 focus:ring-[#2481cc]/25 transition-all"
+              required
+              autocomplete="new-password"
+            />
           </div>
+        </div>
 
-          <div>
-            <label class="block font-medium text-slate-300 mb-1.5 text-xs">Password</label>
-            <div class="relative">
-              <Lock class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <input
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="••••••••"
-                class="tf-input w-full pl-10 pr-10 py-2.5 text-sm text-white"
-                required
-              />
-              <button
-                type="button"
-                @click="showPassword = !showPassword"
-                class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                tabindex="-1"
-              >
-                <EyeOff v-if="showPassword" class="w-4 h-4" />
-                <Eye v-else class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+        <button
+          type="submit"
+          :disabled="isLoading"
+          class="w-full py-3 bg-[#2481cc] hover:bg-[#1f72b5] active:bg-[#1b629b] text-white font-medium text-sm rounded-xl flex items-center justify-center gap-2 mt-6 transition-all duration-200 shadow-md shadow-[#2481cc]/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
+          <template v-else>
+            <ShieldCheck class="w-4 h-4" />
+            <span>{{ isSetupMode ? 'Complete Setup' : 'Sign In' }}</span>
+          </template>
+        </button>
+      </form>
 
-          <button
-            type="submit"
-            :disabled="isLoading"
-            class="tf-btn-primary w-full py-2.5 text-sm font-medium flex items-center justify-center gap-2 mt-2 cursor-pointer"
-          >
-            <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
-            <template v-else>
-              <span>Sign in</span>
-            </template>
-          </button>
-
-          <!-- Quick credentials helper: development builds only -->
-          <div v-if="isDev" class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
-            <span>Dev quick login:</span>
-            <div class="flex items-center gap-1.5 font-mono">
-              <button
-                type="button"
-                @click="fillCredentials('admin', 'admin')"
-                class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-sky-400 text-[10px] transition-colors border border-white/10 cursor-pointer"
-              >
-                admin / admin
-              </button>
-              <span class="text-slate-500 text-[10px]">or</span>
-              <button
-                type="button"
-                @click="fillCredentials('admin', 'abc@123')"
-                class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-sky-400 text-[10px] transition-colors border border-white/10 cursor-pointer"
-              >
-                abc@123
-              </button>
-            </div>
-          </div>
-        </form>
+      <!-- Platform Badges Footer -->
+      <div class="mt-8 pt-6 border-t border-[#242f3d] w-full flex items-center justify-center gap-6 text-xs text-[#7f91a4]">
+        <div class="flex items-center gap-1.5">
+          <Cloud class="w-3.5 h-3.5 text-[#2AABEE]" />
+          <span>Cloudflare Workers</span>
+        </div>
+        <div class="w-1 h-1 rounded-full bg-[#242f3d]"></div>
+        <div class="flex items-center gap-1.5">
+          <Server class="w-3.5 h-3.5 text-[#2AABEE]" />
+          <span>Docker</span>
+        </div>
       </div>
     </div>
 

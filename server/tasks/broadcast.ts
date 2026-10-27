@@ -15,7 +15,7 @@ export default defineTask({
       return { result }
     } catch (error: any) {
       console.error('[Task:broadcast] Failed:', error.message)
-      return { result: { error: error.message } }
+      return { result: { dispatched: 0, skipped: error.message } }
     }
   }
 })

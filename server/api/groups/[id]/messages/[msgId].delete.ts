@@ -2,6 +2,7 @@ import { db } from '../../../../utils/db'
 import { decryptToken } from '../../../../utils/crypto'
 import { resolveGroup } from '../../../../utils/group-resolver'
 import { deleteMessage } from '../../../../utils/telegram'
+import { realtimeHub } from '../../../../utils/realtime'
 
 /**
  * Delete a message from the group (and from stored history).
@@ -46,6 +47,9 @@ export default defineEventHandler(async (event) => {
   if (remaining.length !== messages.length) {
     await db.saveChatMessages(remaining)
   }
+
+  // Broadcast deletion to all active SSE subscribers
+  realtimeHub.emitDelete(group.chatId, msgId)
 
   await db.createLog(group.id, group.name, null, `🗑️ Deleted message #${msgId} from dashboard`, 'SUCCESS', null, null)
 

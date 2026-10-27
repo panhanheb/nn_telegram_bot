@@ -12,7 +12,8 @@ RUN npm ci || npm install
 # Copy source files
 COPY . .
 
-# Build application for production
+# Build application for production using node-server preset
+ENV NITRO_PRESET=node-server
 RUN npm run build
 
 # ------------------------------------------------------------------------------

@@ -1,10 +1,13 @@
-import { db, BotMenuSettings, BotMenuButton } from './db'
+import { db } from './db'
+import type { BotMenuSettings, BotMenuButton } from './db'
 import {
   sendTelegramMessage,
   answerCallbackQuery,
   editTelegramMessageText,
   setMyCommands,
-  setChatMenuButton,
+  setChatMenuButton
+} from './telegram'
+import type {
   TelegramCallbackQuery,
   TelegramIncomingMessage,
   TelegramBotCommand

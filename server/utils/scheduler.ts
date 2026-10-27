@@ -1,4 +1,5 @@
-import { db, JSONSchedule, JSONGroup } from './db'
+import { db } from './db'
+import type { JSONSchedule, JSONGroup } from './db'
 import { decryptToken, encryptToken } from './crypto'
 import {
   verifyTelegramBot,
@@ -22,7 +23,7 @@ function matchCronField(field: string, val: number): boolean {
 
   // Ranges e.g., 1-5
   const rangeMatch = field.match(/^(\d+)-(\d+)$/)
-  if (rangeMatch) {
+  if (rangeMatch && rangeMatch[1] && rangeMatch[2]) {
     const start = parseInt(rangeMatch[1], 10)
     const end = parseInt(rangeMatch[2], 10)
     return val >= start && val <= end
@@ -30,14 +31,14 @@ function matchCronField(field: string, val: number): boolean {
 
   // Steps e.g., */5 or 1-10/2
   const stepParts = field.split('/')
-  if (stepParts.length === 2) {
+  if (stepParts.length === 2 && stepParts[0] && stepParts[1]) {
     const rangePart = stepParts[0]
     const step = parseInt(stepParts[1], 10)
     if (rangePart === '*') {
       return val % step === 0
     }
     const rangeMatch2 = rangePart.match(/^(\d+)-(\d+)$/)
-    if (rangeMatch2) {
+    if (rangeMatch2 && rangeMatch2[1] && rangeMatch2[2]) {
       const start = parseInt(rangeMatch2[1], 10)
       const end = parseInt(rangeMatch2[2], 10)
       if (val >= start && val <= end) {
@@ -60,7 +61,7 @@ function matchCronExpression(
   dayOfWeek: number
 ): boolean {
   const fields = expression.trim().split(/\s+/)
-  if (fields.length !== 5) {
+  if (fields.length !== 5 || !fields[0] || !fields[1] || !fields[2] || !fields[3] || !fields[4]) {
     return false // Only support standard 5-field cron
   }
   return (
@@ -158,8 +159,11 @@ function findDueOccurrence(schedule: JSONSchedule, now: Date): Date | null {
   }
 
   // Fixed HH:MM schedules.
-  const [rawHour, rawMinute] = schedule.time.split(':')
-  const scheduledMinutes = parseInt(rawHour, 10) * 60 + parseInt(rawMinute, 10)
+  const timeParts = (schedule.time || '').split(':')
+  if (timeParts.length < 2 || !timeParts[0] || !timeParts[1]) {
+    return null
+  }
+  const scheduledMinutes = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10)
   if (Number.isNaN(scheduledMinutes)) {
     console.error(`[Cron] Invalid time "${schedule.time}" in schedule "${schedule.title}", skipping.`)
     return null

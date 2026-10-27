@@ -161,9 +161,12 @@ const removeButton = (idx: number) => {
 const moveButton = (idx: number, direction: 'up' | 'down') => {
   const targetIdx = direction === 'up' ? idx - 1 : idx + 1
   if (targetIdx < 0 || targetIdx >= settings.value.buttons.length) return
-  const temp = settings.value.buttons[idx]
-  settings.value.buttons[idx] = settings.value.buttons[targetIdx]
-  settings.value.buttons[targetIdx] = temp
+  const current = settings.value.buttons[idx]
+  const target = settings.value.buttons[targetIdx]
+  if (current && target) {
+    settings.value.buttons[idx] = target
+    settings.value.buttons[targetIdx] = current
+  }
 }
 
 const resetDefaults = () => {

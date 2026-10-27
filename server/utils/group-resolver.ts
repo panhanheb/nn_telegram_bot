@@ -1,4 +1,5 @@
-import { db, JSONGroup } from './db'
+import { db } from './db'
+import type { JSONGroup } from './db'
 import { decryptToken } from './crypto'
 import { getChatInfo } from './telegram'
 

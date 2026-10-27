@@ -6,15 +6,15 @@
 
 [![Nuxt 4](https://img.shields.io/badge/Nuxt-4.4.8-00DC82?style=for-the-badge&logo=nuxtdotjs&logoColor=white)](https://nuxt.com)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5.39-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org)
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%26%20KV-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
-[![Telegram Bot API](https://img.shields.io/badge/Telegram-Bot%20API%207.0-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots/api)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%26%20D1-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram-Bot%20API%2010.3-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots/api)
 [![Google Gemini](https://img.shields.io/badge/Gemini-AI%20Auto--Reply-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-**TeleFlow Pro** is an enterprise-grade Telegram Bot Management & Automation Platform engineered with **Nuxt 4**, **Vue 3**, **Tailwind CSS**, **Pinia**, and **Nitro Server**. 
+**TeleFlow Pro** is an open-source Telegram Bot Management & Automation Platform engineered with **Nuxt 4**, **Vue 3**, **Tailwind CSS**, **Pinia**, and **Nitro Server**. 
 
-Deployable seamlessly to **Cloudflare Workers (Edge Serverless + KV)** or self-hosted via **Docker**, TeleFlow Pro gives teams full control over Telegram broadcasts, scheduled campaigns, community moderation, 2-way live chat, and AI-powered interactions.
+Deployable seamlessly to **Cloudflare Workers (Edge Serverless + D1 / KV)** or self-hosted via **Docker**, TeleFlow Pro gives teams full control over Telegram broadcasts, scheduled campaigns, community moderation, 2-way live chat, and AI-powered interactions.
 
 [Explore Features](#-core-features) • [Quick Start](#-quick-start) • [Cloudflare Deployment](#-cloudflare-workers-deployment) • [Docker](#-docker-deployment) • [API Docs](#-api-endpoints)
 
@@ -24,14 +24,14 @@ Deployable seamlessly to **Cloudflare Workers (Edge Serverless + KV)** or self-h
 
 ## 🌟 Key Highlights
 
-- 🎨 **Liquid Glass UI**: Ultra-modern frosted-glass dark & light interface with fluid animations and responsive layout.
-- 💬 **Live 2-Way Group Chat**: Send and receive group messages in real time with photo, sticker, and media preview support.
-- 🤖 **Multi-Bot & Encrypted Tokens**: Manage bot credentials secured via military-grade **AES-256-CBC** token encryption.
-- 🧠 **Google Gemini AI Auto-Reply**: Context-aware AI responses triggered automatically on bot mentions and replies in group chats.
-- 📅 **Smart Broadcast Scheduler**: Schedule one-time, daily, weekly, monthly, or cron broadcasts with native timezone formatting and a 10-minute missed-tick recovery grace window.
-- 🛡️ **Community Moderation Shield**: Automated filtering of external links, spam stickers, and executable malware file extensions (60+ formats supported).
-- ⚡ **Cloudflare Edge Native**: Runs at zero server cost on Cloudflare Workers using KV storage and Cron Triggers.
-- 🔒 **Enterprise Authentication**: SHA-256 salted credentials with auto-rehash migrations, intelligent HTTPS session cookies, and multi-salt fallback.
+- 🎨 **100% Native Telegram UI**: Authentic Telegram Web & Desktop styling with message bubbles, corner tails, doodle wallpaper, emoji reactions, and forum topic navigation.
+- 💬 **Live 2-Way Group Chat**: Send and receive group messages in real time with photos, videos, voice messages, documents, stickers, and reply chaining.
+- 🤖 **Multi-Bot & Encrypted Tokens**: Manage bot credentials secured via authenticated **AES-256-GCM** encryption with Key ID tracking and key rotation.
+- 🧠 **Google Gemini AI Auto-Reply**: Context-aware AI responses with prompt-injection defense boundaries and rate/budget caps.
+- 📅 **Smart Broadcast Scheduler**: Schedule one-time, daily, weekly, monthly, or cron broadcasts with native timezone formatting and atomic slot locking.
+- 🛡️ **Community Moderation Shield**: Automated filtering of external links (with domain whitelisting), spam stickers, flood protection, and malware extension filtering (60+ formats).
+- ⚡ **Dual Deployment Architecture**: Native execution on Cloudflare Workers (D1 + Durable Objects) and Docker (SQLite + crossws WebSockets).
+- 🔒 **Hardened Authentication**: PBKDF2-SHA256 password hashing (210,000 iterations, per-user salt), server-side opaque sessions, CSRF defense, and constant-time webhook verification.
 
 ---
 
@@ -88,9 +88,9 @@ flowchart TD
 ## 🚀 Core Features
 
 ### 1. 🤖 Bot Orchestration & Verification
-- Real-time bot credential validation via `getMe` API.
+- Real-time bot credential validation via Telegram Bot API 10.3 (`getMe`).
 - Displays bot ID, username, name, group permissions, and online connection status.
-- Hardware-backed AES-256-CBC token encryption using WebCrypto (fully compatible with Cloudflare Workers and Node 20+).
+- Authenticated AES-256-GCM token encryption using WebCrypto with Key ID tracking and key rotation support.
 - Support for multiple bot environments with automatic environment variable synchronization.
 
 ### 2. 💬 Live Telegram Group Chat & Sync
@@ -159,13 +159,8 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 🔑 Default Credentials
-| Field | Value |
-| :--- | :--- |
-| **Username** | `admin` |
-| **Password** | `admin` **or** `abc@123` |
-
-*(The password is automatically rehashed and upgraded to your active encryption key upon first sign in).*
+### 🔑 First-Run Account Setup
+Upon first launching TeleFlow Pro, navigate to `http://localhost:3000`. You will be automatically presented with a **One-Time Setup Screen** to establish the primary **Owner** administrator account. No default credentials exist. Production deployments refuse operation until this account is initialized.
 
 ---
 
@@ -255,10 +250,12 @@ All protected endpoints require an active session cookie (`teleflow_session`).
 
 ## 🔒 Security Architecture
 
-- **Token Encryption**: Bot tokens are encrypted using standard **AES-256-CBC** with a unique random initialization vector (IV) per token (`<iv-hex>:<ciphertext-hex>`).
-- **Password Protection**: Passwords are encrypted with SHA-256 and salted with your private `ENCRYPTION_KEY`.
-- **Session Security**: Cookies are flagged `HttpOnly`, `SameSite=Lax`, and dynamically detect HTTPS on edge proxies to avoid insecure transport.
-- **Webhook Integrity**: Incoming Telegram updates are validated against the `X-Telegram-Bot-Api-Secret-Token` header.
+- **Token Encryption**: Bot tokens are encrypted using authenticated **AES-256-GCM** (12-byte IV, 16-byte authentication tag). Wire format includes Key ID header (`v1:<keyId>:<iv>:<ciphertext>`) to facilitate seamless key rotation.
+- **Password Protection**: Passwords are hashed using **PBKDF2-SHA256** (210,000 iterations, 16-byte cryptographically secure random per-user salt via WebCrypto). Legacy SHA-256 hashes are automatically rehashed upon next successful login.
+- **Session Security**: Server-side opaque session IDs (32 random bytes) with 24-hour idle timeout and 7-day absolute expiration. Cookies are flagged `HttpOnly`, `SameSite=Lax`, and `Secure` in production, accompanied by anti-CSRF token verification on all state mutations.
+- **Webhook Integrity**: Incoming Telegram updates are verified against the configured secret token using constant-time comparison (`crypto.subtle.timingSafeEqual`).
+- **Media Protection**: Telegram media attachments are proxied through an authenticated server endpoint (`/api/media/:fileId`) with HTTP caching, preventing token leakage to the browser.
+- **Role-Based Access Control**: Four granular roles (Owner, Admin, Moderator, Viewer) enforced server-side across all endpoints.
 
 ---
 

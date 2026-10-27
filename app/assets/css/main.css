@@ -263,23 +263,143 @@ input[type='radio'] {
 }
 
 /* ============================================================
-   CHAT
+   TELEGRAM 100% NATIVE CHAT DESIGN SYSTEM
    ============================================================ */
 
-.chat-canvas {
-  background-color: var(--tf-bg);
+.telegram-wallpaper {
+  background-color: #0e1621;
+  background-image: 
+    radial-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(80, 167, 234, 0.04) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
 }
 
+html.theme-light .telegram-wallpaper {
+  background-color: #8da6ba;
+  background-image: 
+    radial-gradient(rgba(0, 0, 0, 0.07) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(36, 129, 204, 0.05) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
+
+.chat-canvas {
+  background-color: #0e1621;
+}
+html.theme-light .chat-canvas {
+  background-color: #8da6ba;
+}
+
+/* Telegram Native Message Bubbles */
 .chat-bubble-in {
-  background-color: var(--tf-card-elevated);
-  border: 1px solid var(--tf-border);
-  color: var(--tf-text);
+  background-color: #182533;
+  color: #f5f5f5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+html.theme-light .chat-bubble-in {
+  background-color: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
 }
 
 .chat-bubble-out {
-  background-color: var(--tf-primary);
-  border: 1px solid transparent;
+  background-color: #2b5278;
   color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+html.theme-light .chat-bubble-out {
+  background-color: #effdde;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+html.theme-light .chat-bubble-out .text-white {
+  color: #111827 !important;
+}
+
+/* Bubble Corner Tails */
+.bubble-tail-in {
+  position: absolute;
+  bottom: 0;
+  left: -8px;
+  width: 9px;
+  height: 18px;
+  fill: #182533;
+  pointer-events: none;
+}
+
+html.theme-light .bubble-tail-in {
+  fill: #ffffff;
+}
+
+.bubble-tail-out {
+  position: absolute;
+  bottom: 0;
+  right: -8px;
+  width: 9px;
+  height: 18px;
+  fill: #2b5278;
+  pointer-events: none;
+}
+
+html.theme-light .bubble-tail-out {
+  fill: #effdde;
+}
+
+/* Telegram 7-color sender palette */
+.tg-color-0 { color: #e17076 !important; }
+.tg-color-1 { color: #faa774 !important; }
+.tg-color-2 { color: #a695e7 !important; }
+.tg-color-3 { color: #7bc862 !important; }
+.tg-color-4 { color: #6ec9cb !important; }
+.tg-color-5 { color: #65aadd !important; }
+.tg-color-6 { color: #ee7aae !important; }
+
+.tg-border-0 { border-color: #e17076 !important; }
+.tg-border-1 { border-color: #faa774 !important; }
+.tg-border-2 { border-color: #a695e7 !important; }
+.tg-border-3 { border-color: #7bc862 !important; }
+.tg-border-4 { border-color: #6ec9cb !important; }
+.tg-border-5 { border-color: #65aadd !important; }
+.tg-border-6 { border-color: #ee7aae !important; }
+
+/* Typing animation */
+@keyframes tgPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.tg-typing-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background-color: #50a7ea;
+  animation: tgPulse 1.2s infinite ease-in-out;
+}
+.tg-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.tg-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Interactive Reaction Pills */
+.tg-reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  user-select: none;
+  cursor: pointer;
+}
+.tg-reaction-pill:hover {
+  transform: scale(1.08);
+}
+.tg-reaction-pill:active {
+  transform: scale(0.95);
 }
 
 /* ============================================================

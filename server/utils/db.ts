@@ -12,6 +12,8 @@ const AI_PATH = 'ai.json'
 const WARNINGS_PATH = 'warnings.json'
 const MENU_PATH = 'menu.json'
 const LEGACY_BOTS_PATH = 'bots.json'
+const SESSIONS_PATH = 'sessions.json'
+const AUDIT_PATH = 'audit.json'
 
 export interface BotMenuButton {
   id: string
@@ -29,11 +31,41 @@ export interface BotMenuSettings {
   buttons: BotMenuButton[]
 }
 
-// Interfaces
+export type UserRole = 'Owner' | 'Admin' | 'Moderator' | 'Viewer'
+
 export interface JSONUser {
   id: string
   username: string
   passwordHash: string
+  role: UserRole
+  createdAt: string
+  totpSecret?: string
+}
+
+export interface JSONSession {
+  id: string // 32-byte opaque hex token
+  userId: string
+  username: string
+  role: UserRole
+  csrfToken: string
+  createdAt: string
+  expiresAt: string
+  lastActiveAt: string
+  ipAddress?: string
+  userAgent?: string
+}
+
+export interface JSONAuditEntry {
+  id: string
+  userId: string | null
+  username: string
+  role: string
+  action: string
+  entityType?: string
+  entityId?: string
+  ipAddress?: string
+  userAgent?: string
+  details?: any
   createdAt: string
 }
 
@@ -334,12 +366,15 @@ export const db = {
   async updateGroup(id: number, updates: Partial<Omit<JSONGroup, 'id' | 'createdAt'>>): Promise<JSONGroup> {
     const groups = await this.getGroups()
     const index = groups.findIndex(g => g.id === id)
-    if (index === -1) {
+    const existing = groups[index]
+    if (index === -1 || !existing) {
       throw new Error(`Group with ID ${id} not found`)
     }
-    const updatedGroup = {
-      ...groups[index],
-      ...updates
+    const updatedGroup: JSONGroup = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      createdAt: existing.createdAt
     }
     groups[index] = updatedGroup
     await this.saveGroups(groups)
@@ -414,12 +449,15 @@ export const db = {
   async updateSchedule(id: number, updates: Partial<Omit<JSONSchedule, 'id' | 'createdAt'>>): Promise<JSONSchedule> {
     const schedules = await this.getSchedules()
     const index = schedules.findIndex(s => s.id === id)
-    if (index === -1) {
+    const existing = schedules[index]
+    if (index === -1 || !existing) {
       throw new Error(`Schedule with ID ${id} not found`)
     }
-    const updatedSchedule = {
-      ...schedules[index],
-      ...updates
+    const updatedSchedule: JSONSchedule = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      createdAt: existing.createdAt
     }
     schedules[index] = updatedSchedule
     await this.saveSchedules(schedules)
@@ -625,6 +663,9 @@ export const db = {
     }
 
     const existing = members[index]
+    if (!existing) {
+      return members[0]!
+    }
     const updated: JSONMember = {
       ...existing,
       firstName: user.first_name ?? existing.firstName,
@@ -733,31 +774,28 @@ export const db = {
     if (remaining.length !== warnings.length) await writeJsonFile(WARNINGS_PATH, remaining)
   },
 
-  // User Management
+  // User & Access Management (RBAC)
   async getUsers(): Promise<JSONUser[]> {
-    let users = await readJsonFile<JSONUser[]>(USERS_PATH, [])
-    if (!users || users.length === 0) {
-      const defaultHash = typeof hashPassword === 'function'
-        ? await hashPassword('abc@123')
-        : '02f1b576aa4af57aea918cd0355a3d3d41642718c8d5d1772daa294f6675dcd2'
-      const defaultAdmin: JSONUser = {
-        id: '1b2835e8-b0dc-4dea-8ad6-cd019904b0ce',
-        username: 'admin',
-        passwordHash: defaultHash,
-        createdAt: new Date().toISOString()
-      }
-      users = [defaultAdmin]
-      try {
-        await writeJsonFile(USERS_PATH, users)
-      } catch (err) {
-        console.warn('[db] Failed to write seeded admin user to storage:', err)
-      }
-    }
-    return users
+    return readJsonFile<JSONUser[]>(USERS_PATH, [])
   },
 
   async saveUsers(users: JSONUser[]): Promise<void> {
     await writeJsonFile(USERS_PATH, users)
+  },
+
+  async hasOwner(): Promise<boolean> {
+    const users = await this.getUsers()
+    return users.some(u => u.role === 'Owner')
+  },
+
+  async isSetupRequired(): Promise<boolean> {
+    const users = await this.getUsers()
+    return users.length === 0 || !users.some(u => u.role === 'Owner')
+  },
+
+  async getUserById(id: string): Promise<JSONUser | null> {
+    const users = await this.getUsers()
+    return users.find(u => u.id === id) || null
   },
 
   async getUserByUsername(username: string): Promise<JSONUser | null> {
@@ -765,25 +803,174 @@ export const db = {
     return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null
   },
 
-  async updateUserPassword(id: string, newPasswordHash: string): Promise<boolean> {
+  async createOwner(username: string, passwordHash: string): Promise<JSONUser> {
     const users = await this.getUsers()
-    const index = users.findIndex(u => u.id === id)
-    if (index === -1) return false
-    users[index].passwordHash = newPasswordHash
+    if (users.some(u => u.role === 'Owner')) {
+      throw new Error('An Owner account has already been initialized')
+    }
+    const owner: JSONUser = {
+      id: crypto.randomUUID(),
+      username: username.trim(),
+      passwordHash,
+      role: 'Owner',
+      createdAt: new Date().toISOString()
+    }
+    users.push(owner)
     await this.saveUsers(users)
-    return true
+    return owner
   },
 
-  async createUser(username: string, passwordHash: string): Promise<JSONUser> {
+  async createUser(username: string, passwordHash: string, role: UserRole = 'Viewer'): Promise<JSONUser> {
     const users = await this.getUsers()
+    const cleanUsername = username.trim()
+    if (users.some(u => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
+      throw new Error(`Username "${cleanUsername}" is already taken`)
+    }
     const newUser: JSONUser = {
       id: crypto.randomUUID(),
-      username,
+      username: cleanUsername,
       passwordHash,
+      role,
       createdAt: new Date().toISOString()
     }
     users.push(newUser)
     await this.saveUsers(users)
     return newUser
+  },
+
+  async updateUserPassword(id: string, newPasswordHash: string): Promise<boolean> {
+    const users = await this.getUsers()
+    const index = users.findIndex(u => u.id === id)
+    const target = users[index]
+    if (index === -1 || !target) return false
+    target.passwordHash = newPasswordHash
+    await this.saveUsers(users)
+    return true
+  },
+
+  async updateUserRole(id: string, newRole: UserRole): Promise<boolean> {
+    const users = await this.getUsers()
+    const index = users.findIndex(u => u.id === id)
+    const target = users[index]
+    if (index === -1 || !target) return false
+    // Ensure we do not demote the last remaining Owner
+    if (target.role === 'Owner' && newRole !== 'Owner') {
+      const ownerCount = users.filter(u => u.role === 'Owner').length
+      if (ownerCount <= 1) {
+        throw new Error('Cannot demote the primary Owner account')
+      }
+    }
+    target.role = newRole
+    await this.saveUsers(users)
+    return true
+  },
+
+  async deleteUser(id: string): Promise<boolean> {
+    const users = await this.getUsers()
+    const user = users.find(u => u.id === id)
+    if (!user) return false
+    if (user.role === 'Owner') {
+      const ownerCount = users.filter(u => u.role === 'Owner').length
+      if (ownerCount <= 1) {
+        throw new Error('Cannot delete the primary Owner account')
+      }
+    }
+    const remaining = users.filter(u => u.id !== id)
+    await this.saveUsers(remaining)
+    // Revoke all active sessions for this user
+    await this.deleteUserSessions(id)
+    return true
+  },
+
+  // Server-Side Session Store
+  async getSessions(): Promise<JSONSession[]> {
+    return readJsonFile<JSONSession[]>(SESSIONS_PATH, [])
+  },
+
+  async saveSessions(sessions: JSONSession[]): Promise<void> {
+    await writeJsonFile(SESSIONS_PATH, sessions)
+  },
+
+  async getSession(id: string): Promise<JSONSession | null> {
+    const sessions = await this.getSessions()
+    const now = Date.now()
+    const session = sessions.find(s => s.id === id)
+    if (!session) return null
+
+    // Check expiration (absolute or idle 24h)
+    const expiresAt = new Date(session.expiresAt).getTime()
+    const lastActiveAt = new Date(session.lastActiveAt).getTime()
+    const IDLE_LIMIT_MS = 24 * 60 * 60 * 1000
+
+    if (now > expiresAt || now - lastActiveAt > IDLE_LIMIT_MS) {
+      await this.deleteSession(id)
+      return null
+    }
+
+    return session
+  },
+
+  async saveSession(session: JSONSession): Promise<void> {
+    const sessions = await this.getSessions()
+    const index = sessions.findIndex(s => s.id === session.id)
+    if (index === -1) {
+      sessions.push(session)
+    } else {
+      sessions[index] = session
+    }
+    // Prune expired sessions (keep list bounded)
+    const now = Date.now()
+    const active = sessions.filter(s => new Date(s.expiresAt).getTime() > now)
+    await this.saveSessions(active)
+  },
+
+  async touchSession(id: string): Promise<void> {
+    const sessions = await this.getSessions()
+    const session = sessions.find(s => s.id === id)
+    if (session) {
+      session.lastActiveAt = new Date().toISOString()
+      await this.saveSessions(sessions)
+    }
+  },
+
+  async deleteSession(id: string): Promise<boolean> {
+    const sessions = await this.getSessions()
+    const remaining = sessions.filter(s => s.id !== id)
+    if (remaining.length === sessions.length) return false
+    await this.saveSessions(remaining)
+    return true
+  },
+
+  async deleteUserSessions(userId: string): Promise<number> {
+    const sessions = await this.getSessions()
+    const remaining = sessions.filter(s => s.userId !== userId)
+    const removedCount = sessions.length - remaining.length
+    if (removedCount > 0) {
+      await this.saveSessions(remaining)
+    }
+    return removedCount
+  },
+
+  // Audit Logging
+  async getAuditEntries(limit = 100): Promise<JSONAuditEntry[]> {
+    const entries = await readJsonFile<JSONAuditEntry[]>(AUDIT_PATH, [])
+    return entries.slice(-limit).reverse()
+  },
+
+  async createAuditEntry(entry: Omit<JSONAuditEntry, 'id' | 'createdAt'>): Promise<JSONAuditEntry> {
+    const entries = await readJsonFile<JSONAuditEntry[]>(AUDIT_PATH, [])
+    const newEntry: JSONAuditEntry = {
+      id: crypto.randomUUID(),
+      ...entry,
+      createdAt: new Date().toISOString()
+    }
+    entries.push(newEntry)
+    // Keep bounded to last 2000 entries
+    if (entries.length > 2000) {
+      entries.splice(0, entries.length - 2000)
+    }
+    await writeJsonFile(AUDIT_PATH, entries)
+    return newEntry
   }
 }
+

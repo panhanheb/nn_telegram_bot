@@ -1,5 +1,6 @@
 import { db } from '../../../utils/db'
 import { resolveGroup } from '../../../utils/group-resolver'
+import { realtimeHub } from '../../../utils/realtime'
 
 /**
  * Clear a group's stored conversation history from the dashboard.
@@ -22,6 +23,8 @@ export default defineEventHandler(async (event) => {
   if (removed > 0) {
     await db.saveChatMessages(remaining)
   }
+
+  realtimeHub.emitCleared(group.chatId)
 
   await db.createLog(group.id, group.name, null, `🧹 Cleared chat history (${removed} messages) from dashboard`, 'SUCCESS', null, null)
 

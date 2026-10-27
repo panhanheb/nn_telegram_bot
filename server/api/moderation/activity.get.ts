@@ -1,4 +1,5 @@
-import { db, JSONLog } from '../../utils/db'
+import { db } from '../../utils/db'
+import type { JSONLog } from '../../utils/db'
 
 // Moderation activity derived from the message log written by server/utils/moderation.ts.
 // Only log lines produced by moderation are counted; the log keeps the latest 1000

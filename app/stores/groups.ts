@@ -75,8 +75,9 @@ export const useGroupsStore = defineStore('groups', {
         })
         if (data.success) {
           const index = this.groups.findIndex(g => g.id === id)
-          if (index !== -1) {
-            this.groups[index].isActive = data.group.isActive
+          const target = this.groups[index]
+          if (target) {
+            target.isActive = data.group.isActive
           }
         }
         return data

@@ -43,20 +43,20 @@ export default defineNuxtConfig({
   // Server-side configs (runtimeConfig)
   // On Cloudflare set these as NUXT_* vars (e.g. NUXT_ENCRYPTION_KEY)
   runtimeConfig: {
-    encryptionKey: process.env.ENCRYPTION_KEY || 'teleflow-ultra-secure-secret-encryption-key-32b',
+    encryptionKey: process.env.ENCRYPTION_KEY || '',
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
     telegramGroupChatId: process.env.TELEGRAM_GROUP_CHAT_ID || '',
     // Shared secret used to authenticate Telegram webhook calls
-    webhookSecret: process.env.WEBHOOK_SECRET || 'teleflow-webhook-secret',
+    webhookSecret: process.env.WEBHOOK_SECRET || '',
     // Public base URL of the deployment, used to register the webhook
     publicUrl: process.env.PUBLIC_URL || '',
     // Google Gemini API key powering the AI auto-reply (set as NUXT_GEMINI_API_KEY on Cloudflare)
     geminiApiKey: process.env.GEMINI_API_KEY || ''
   },
 
-  // Cloudflare Workers target
+  // Nitro engine configuration (Cloudflare Workers or Docker/Node via NITRO_PRESET)
   nitro: {
-    preset: 'cloudflare-module',
+    preset: process.env.NITRO_PRESET || 'cloudflare-module',
 
     // Enable Nitro tasks + map the every-minute Cloudflare cron trigger to them
     experimental: { tasks: true },

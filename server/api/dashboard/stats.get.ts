@@ -45,9 +45,9 @@ export default defineEventHandler(async () => {
 
       const schedulesWithDiff = upcomingSchedules.map(s => {
         // Parse time HH:MM
-        const [hoursStr, minutesStr] = s.time.split(':')
-        const hours = parseInt(hoursStr)
-        const minutes = parseInt(minutesStr)
+        const parts = (s.time || '').split(':')
+        const hours = parseInt(parts[0] || '0', 10)
+        const minutes = parseInt(parts[1] || '0', 10)
         const scheduleMinutes = hours * 60 + minutes
 
         let diff = scheduleMinutes - currentMinutesTotal
@@ -73,13 +73,15 @@ export default defineEventHandler(async () => {
       // Sort by difference in minutes ascending
       schedulesWithDiff.sort((a, b) => a.diff - b.diff)
       const next = schedulesWithDiff[0]
-      nextSchedule = {
-        id: String(next.schedule.id),
-        title: next.schedule.title,
-        time: next.schedule.time,
-        message: next.schedule.message,
-        execTime: next.execTime.toISOString(),
-        minutesLeft: next.diff
+      if (next) {
+        nextSchedule = {
+          id: String(next.schedule.id),
+          title: next.schedule.title,
+          time: next.schedule.time,
+          message: next.schedule.message,
+          execTime: next.execTime.toISOString(),
+          minutesLeft: next.diff
+        }
       }
     }
 

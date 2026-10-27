@@ -217,13 +217,20 @@ const dailyMax = computed(() =>
 const barHeight = (v: number, max: number) => (max > 0 && v > 0 ? `${Math.max(2, (v / max) * 100)}%` : '0%')
 
 const dayLabel = (iso: string, long = false) => {
-  const [y, m, d] = iso.split('-').map(Number)
+  const parts = iso.split('-').map(Number)
+  const y = parts[0] ?? 1970
+  const m = parts[1] ?? 1
+  const d = parts[2] ?? 1
   const date = new Date(y, m - 1, d)
   if (long) return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
   return activeDays.value <= 7
     ? date.toLocaleDateString(undefined, { weekday: 'short' })
     : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+const hoveredDayItem = computed(() => {
+  if (hoveredDay.value === null) return null
+  return series.value[hoveredDay.value] || null
+})
 const tickEvery = computed(() => (activeDays.value <= 7 ? 1 : activeDays.value <= 14 ? 2 : activeDays.value <= 30 ? 5 : 15))
 const showTick = (i: number) => i % tickEvery.value === 0 || i === series.value.length - 1
 
@@ -406,15 +413,15 @@ const rangeLabel = computed(() => {
             </div>
 
             <div
-              v-if="hoveredDay !== null && series[hoveredDay]"
+              v-if="hoveredDayItem"
               class="absolute top-0 right-0 tf-card-elevated px-3 py-2 text-xs pointer-events-none z-10 space-y-1 min-w-[190px]"
             >
-              <p class="font-medium text-white">{{ dayLabel(series[hoveredDay].date, true) }}</p>
-              <div class="flex justify-between gap-4"><span class="text-slate-400">Received</span><span class="tabular-nums text-white">{{ fmt(series[hoveredDay].received) }}</span></div>
-              <div class="flex justify-between gap-4"><span class="text-slate-400">Delivered</span><span class="tabular-nums text-white">{{ fmt(series[hoveredDay].outboundDelivered) }}</span></div>
-              <div class="flex justify-between gap-4"><span class="text-slate-400">Failed</span><span class="tabular-nums" :class="series[hoveredDay].outboundFailed ? 'text-rose-400' : 'text-white'">{{ fmt(series[hoveredDay].outboundFailed) }}</span></div>
-              <div class="flex justify-between gap-4"><span class="text-slate-400">AI replies</span><span class="tabular-nums text-white">{{ fmt(series[hoveredDay].aiReplies) }}</span></div>
-              <div class="flex justify-between gap-4"><span class="text-slate-400">Moderation</span><span class="tabular-nums text-white">{{ fmt(series[hoveredDay].moderation) }}</span></div>
+              <p class="font-medium text-white">{{ dayLabel(hoveredDayItem.date, true) }}</p>
+              <div class="flex justify-between gap-4"><span class="text-slate-400">Received</span><span class="tabular-nums text-white">{{ fmt(hoveredDayItem.received) }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-400">Delivered</span><span class="tabular-nums text-white">{{ fmt(hoveredDayItem.outboundDelivered) }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-400">Failed</span><span class="tabular-nums" :class="hoveredDayItem.outboundFailed ? 'text-rose-400' : 'text-white'">{{ fmt(hoveredDayItem.outboundFailed) }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-400">AI replies</span><span class="tabular-nums text-white">{{ fmt(hoveredDayItem.aiReplies) }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-400">Moderation</span><span class="tabular-nums text-white">{{ fmt(hoveredDayItem.moderation) }}</span></div>
             </div>
           </div>
         </div>
@@ -464,7 +471,7 @@ const rangeLabel = computed(() => {
                 class="absolute top-0 right-0 tf-card-elevated px-3 py-1.5 text-xs pointer-events-none z-10 tabular-nums"
               >
                 <span class="text-slate-400">{{ hourLabel(hoveredHour) }}–{{ hourLabel((hoveredHour + 1) % 24) }}</span>
-                <span class="text-white font-medium ml-2">{{ fmt(hourly[hoveredHour]) }}</span>
+                <span class="text-white font-medium ml-2">{{ fmt(hourly[hoveredHour] ?? 0) }}</span>
               </div>
             </div>
           </div>

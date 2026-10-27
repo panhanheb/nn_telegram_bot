@@ -1,5 +1,5 @@
 import { db } from '../../utils/db'
-import { decryptToken } from '../../utils/crypto'
+import { decryptToken, timingSafeEqual } from '../../utils/crypto'
 import { handleTelegramUpdate } from '../../utils/moderation'
 import type { TelegramUpdate } from '../../utils/telegram'
 
@@ -10,11 +10,17 @@ import type { TelegramUpdate } from '../../utils/telegram'
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
 
-  // Authenticate the caller if a secret token was configured and sent
-  const secret = getHeader(event, 'x-telegram-bot-api-secret-token')
-  if (secret && config.webhookSecret && secret !== config.webhookSecret) {
-    console.warn('[Webhook] Rejected update: Secret token mismatch')
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  // Authenticate caller: If a webhook secret is configured, require and verify the header
+  const configuredSecret = (config.webhookSecret || process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
+  if (configuredSecret) {
+    const receivedSecret = getHeader(event, 'x-telegram-bot-api-secret-token') || ''
+    if (!receivedSecret || !timingSafeEqual(receivedSecret, configuredSecret)) {
+      console.warn('[Webhook] Rejected incoming update: Secret token mismatch or missing')
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized: Invalid secret token'
+      })
+    }
   }
 
   const update = await readBody<TelegramUpdate>(event).catch(() => null)
@@ -32,7 +38,7 @@ export default defineEventHandler(async (event) => {
     return { ok: true }
   }
 
-  const botUserId = parseInt(token.split(':')[0], 10)
+  const botUserId = parseInt(token.split(':')[0] || '0', 10)
 
   try {
     await handleTelegramUpdate(token, botUserId, update)

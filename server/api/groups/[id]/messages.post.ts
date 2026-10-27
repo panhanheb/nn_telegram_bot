@@ -8,6 +8,7 @@ import {
   sendTelegramPhotoUpload,
   sendTelegramVideoUpload
 } from '../../../utils/telegram'
+import { realtimeHub } from '../../../utils/realtime'
 
 function isUploadedBlob(value: unknown): value is Blob {
   return !!value && typeof value === 'object' &&
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const isMultipart = getHeader(event, 'content-type')?.includes('multipart/form-data')
-  const form = isMultipart ? await event.request.formData().catch(() => null) : null
+  const form = isMultipart ? await readFormData(event).catch(() => null) : null
   const body = form ? Object.fromEntries(form.entries()) : await readBody(event).catch(() => ({}))
   const text = typeof body?.message === 'string' ? body.message.trim() : ''
   const stickerFileId = typeof body?.stickerFileId === 'string' ? body.stickerFileId.trim() : ''
@@ -124,11 +125,14 @@ export default defineEventHandler(async (event) => {
         }
       : {}),
     ...(mediaType === 'photo' && response.photo?.length
-      ? { mediaType: 'photo' as const, mediaFileId: response.photo[response.photo.length - 1].file_id }
+      ? { mediaType: 'photo' as const, mediaFileId: response.photo[response.photo.length - 1]?.file_id }
       : mediaType === 'video' && response.video
         ? { mediaType: 'video' as const, mediaFileId: response.video.file_id, mediaMime: response.video.mime_type, mediaFileName: fileName }
         : {})
   })
+
+  // Broadcast to all active SSE subscribers for zero-latency live chat
+  realtimeHub.emitMessage(stored)
 
   await db.createLog(
     group.id,

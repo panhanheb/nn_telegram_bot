@@ -1,9 +1,12 @@
-import { db, ModerationSettings, JSONGroup } from './db'
+import { db } from './db'
+import type { ModerationSettings, JSONGroup } from './db'
 import {
   deleteMessage,
   getChatMember,
   muteChatMember,
-  sendTelegramMessage,
+  sendTelegramMessage
+} from './telegram'
+import type {
   TelegramIncomingMessage,
   TelegramUpdate
 } from './telegram'
@@ -14,6 +17,7 @@ import {
   buildMenuText,
   handleCallbackQuery
 } from './bot-menu'
+import { realtimeHub } from './realtime'
 
 // Escape text so it is safe inside an HTML-parse-mode Telegram message.
 function escapeHtml(text: string): string {
@@ -154,7 +158,8 @@ function extractMedia(msg: TelegramIncomingMessage): Partial<{
     }
   }
   if (msg.photo && msg.photo.length > 0) {
-    return { mediaType: 'photo', mediaFileId: msg.photo[msg.photo.length - 1].file_id }
+    const largestPhoto = msg.photo[msg.photo.length - 1]
+    if (largestPhoto) return { mediaType: 'photo', mediaFileId: largestPhoto.file_id }
   }
   if (msg.video) return { mediaType: 'video', mediaFileId: msg.video.file_id, mediaMime: msg.video.mime_type }
   if (msg.animation) return { mediaType: 'animation', mediaFileId: msg.animation.file_id, mediaMime: msg.animation.mime_type }
@@ -436,7 +441,7 @@ async function recordActivity(msg: TelegramIncomingMessage) {
       (replied.from?.username ? `@${replied.from.username}` : 'Unknown')
     : undefined
 
-  await db.addChatMessage({
+  const stored = await db.addChatMessage({
     chatId,
     messageId: msg.message_id,
     fromId: msg.from?.id ?? null,
@@ -451,6 +456,9 @@ async function recordActivity(msg: TelegramIncomingMessage) {
     replyToText: replied ? summariseMessage(replied) : undefined,
     ...media
   })
+
+  // Broadcast incoming message in real-time
+  realtimeHub.emitMessage(stored)
 }
 
 // Was this message a reply to one of the bot's own messages?
@@ -541,7 +549,7 @@ async function maybeAiReply(
     const sent = await sendTelegramMessage(token, chatId, escapeHtml(reply), 'HTML', msg.message_id)
 
     const bot = await db.getBot()
-    await db.addChatMessage({
+    const storedAi = await db.addChatMessage({
       chatId,
       messageId: sent.message_id,
       fromId: null,
@@ -555,6 +563,8 @@ async function maybeAiReply(
       replyToName: fromName,
       replyToText: prompt.length > 60 ? `${prompt.slice(0, 60)}…` : prompt
     })
+
+    realtimeHub.emitMessage(storedAi)
 
     const group = await db.getGroupByChatId(chatId)
     await db.createLog(group ? group.id : null, chatTitle, null, `🤖 AI replied to ${fromName}`, 'SUCCESS', null, null)
@@ -570,7 +580,13 @@ async function maybeAiReply(
 async function recordEdit(msg: TelegramIncomingMessage) {
   const media = extractMedia(msg)
   const text = msg.text || msg.caption || (media.mediaType ? '' : '[media]')
-  await db.updateChatMessage(String(msg.chat.id), msg.message_id, { text, ...media })
+  const chatId = String(msg.chat.id)
+  await db.updateChatMessage(chatId, msg.message_id, { text, ...media })
+  const msgs = await db.getChatMessagesByChatId(chatId, 50)
+  const updated = msgs.find(m => m.messageId === msg.message_id)
+  if (updated) {
+    realtimeHub.emitUpdate(updated)
+  }
 }
 
 const HELP_TEXT = [
@@ -604,7 +620,7 @@ async function handleBotCommand(
   const reply = async (html: string, replyMarkup?: any) => {
     const sent = await sendTelegramMessage(token, chatId, html, 'HTML', msg.message_id, replyMarkup)
     const bot = await db.getBot()
-    await db.addChatMessage({
+    const storedBot = await db.addChatMessage({
       chatId,
       messageId: sent.message_id,
       fromId: null,
@@ -616,6 +632,7 @@ async function handleBotCommand(
       date: new Date().toISOString(),
       replyToMessageId: msg.message_id
     })
+    realtimeHub.emitMessage(storedBot)
   }
 
   // Check if message text matches any configured Menu button (e.g. from reply keyboard)
