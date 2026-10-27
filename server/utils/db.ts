@@ -1,3 +1,5 @@
+import { getStorageRepository } from '../db'
+
 // Storage keys. Backed by Cloudflare KV in production and by the local
 // data/*.json files during development (see nitro.storage in nuxt.config).
 const BOT_PATH = 'bot.json'
@@ -971,6 +973,35 @@ export const db = {
     }
     await writeJsonFile(AUDIT_PATH, entries)
     return newEntry
+  },
+
+  // Update Deduplication
+  async isUpdateProcessed(updateId: number): Promise<boolean> {
+    const repo = getStorageRepository()
+    return repo.isUpdateProcessed(updateId)
+  },
+
+  async markUpdateProcessed(updateId: number): Promise<void> {
+    const repo = getStorageRepository()
+    await repo.markUpdateProcessed(updateId)
+  },
+
+  // Atomic Schedule Slot Locking
+  async claimScheduleRun(scheduleId: number, scheduledFor: string): Promise<boolean> {
+    const repo = getStorageRepository()
+    return repo.claimScheduleRun(scheduleId, scheduledFor)
+  },
+
+  async completeScheduleRun(
+    scheduleId: number,
+    scheduledFor: string,
+    status: 'SUCCESS' | 'FAILED',
+    deliveredCount: number,
+    failedCount: number,
+    error?: string | null
+  ): Promise<void> {
+    const repo = getStorageRepository()
+    await repo.completeScheduleRun(scheduleId, scheduledFor, status, deliveredCount, failedCount, error)
   }
 }
 

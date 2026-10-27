@@ -28,6 +28,13 @@ export default defineEventHandler(async (event) => {
     return { ok: true }
   }
 
+  // Idempotent deduplication: discard retried updates immediately
+  const isDuplicate = await db.isUpdateProcessed(update.update_id)
+  if (isDuplicate) {
+    return { ok: true, deduplicated: true }
+  }
+  await db.markUpdateProcessed(update.update_id)
+
   const bot = await db.getBot()
   if (!bot || !bot.active) return { ok: true }
 

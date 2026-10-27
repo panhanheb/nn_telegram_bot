@@ -364,6 +364,8 @@ async function dispatchSchedule(schedule: JSONSchedule, groups: JSONGroup[], tok
   } catch (err: any) {
     console.warn(`[Cron] Could not record delivery for "${schedule.title}": ${err.message}`)
   }
+
+  return { delivered, failed }
 }
 
 /**
@@ -436,19 +438,28 @@ export async function runScheduledBroadcast(now = new Date(), options: { force?:
       continue
     }
 
-    // Claim the slot before sending. A tick that overruns into the next minute
-    // would otherwise let the following tick dispatch the same slot again.
-    //
-    // Caveat: this guard is only as fresh as KV, which is eventually consistent
-    // (a read can be served from edge cache for up to ~60s). A tick landing in
-    // the grace window on a stale read can therefore still double-send. If
-    // exactly-once matters, move the claim into a Durable Object.
+    // Atomic slot claim using relational schedule_runs table.
+    // Guarantees exactly-once execution across concurrent Cloudflare Workers or Docker replicas.
+    const slotIso = occurrence.toISOString()
+    const claimed = await db.claimScheduleRun(schedule.id, slotIso)
+    if (!claimed) {
+      console.log(`[Cron] Slot ${slotIso} for schedule "${schedule.title}" already claimed by another worker. Skipping.`)
+      continue
+    }
+
     await db.updateSchedule(schedule.id, {
-      lastExecutedAt: occurrence.toISOString(),
+      lastExecutedAt: slotIso,
       active: schedule.type === 'one_time' ? false : schedule.active
     })
 
-    await dispatchSchedule(schedule, scheduleGroups, token)
+    const { delivered, failed } = await dispatchSchedule(schedule, scheduleGroups, token)
+    await db.completeScheduleRun(
+      schedule.id,
+      slotIso,
+      failed > 0 && delivered === 0 ? 'FAILED' : 'SUCCESS',
+      delivered,
+      failed
+    )
     dispatched++
   }
 
