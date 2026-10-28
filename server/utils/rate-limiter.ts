@@ -18,6 +18,9 @@ let cleanupTimer: any = null
 
 function ensureCleanup() {
   if (cleanupTimer) return
+  // setInterval is not supported on Cloudflare Workers. Workers instances are
+  // short-lived so in-memory cleanup isn't needed there anyway.
+  if (typeof process === 'undefined' || !process.versions?.node) return
   cleanupTimer = setInterval(() => {
     const now = Date.now()
     for (const [key, record] of limitStore.entries()) {
