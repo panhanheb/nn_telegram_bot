@@ -75,22 +75,62 @@ export default defineNuxtConfig({
 
     // Exclude Node-only packages from the Workers bundle.
     // better-sqlite3 uses native bindings + fs APIs that don't exist in
-    // Cloudflare Workers (unenv). Bundling it triggers error 10021 during
-    // Workers script validation (fs.mkdirSync is not implemented).
-    // The Workers runtime always uses D1; SQLite is only used in Docker/Node.
+    // Cloudflare Workers (unenv). Bundling them triggers error 10021.
     externals: {
       external: ['better-sqlite3', 'drizzle-orm/better-sqlite3']
     },
     rollupConfig: {
-      external: ['better-sqlite3', 'drizzle-orm/better-sqlite3']
-    },
-    // Completely exclude the SQLite-only server file from the Workers bundle.
-    // Without this, Rollup inlines sqlite-repository.ts into nitro.mjs and
-    // Cloudflare's script validator crashes on `fs.mkdirSync` (error 10021).
-    // The Workers runtime uses D1 (d1-repository.ts) exclusively.
-    ignore: [
-      'server/db/sqlite-repository'
-    ]
+      external: ['better-sqlite3', 'drizzle-orm/better-sqlite3'],
+      // Replace sqlite-repository with a no-op stub so Rollup never
+      // bundles the real implementation (which calls fs.mkdirSync).
+      // This is the only reliable way to prevent Cloudflare error 10021.
+      plugins: [
+        {
+          name: 'cf-workers-sqlite-stub',
+          resolveId(id: string) {
+            if (id.includes('sqlite-repository')) {
+              return '\0cf-sqlite-stub'
+            }
+            return null
+          },
+          load(id: string) {
+            if (id === '\0cf-sqlite-stub') {
+              // Minimal stub — same exports as sqlite-repository.ts but no
+              // filesystem access. Workers always use D1; this code is never
+              // actually called at runtime on Workers.
+              return `
+export class SqliteStorageRepository {
+  constructor() {}
+  async initialize() { throw new Error('[Workers] SQLite unavailable; configure D1') }
+  async getAllGroups() { return [] }
+  async getGroup() { return null }
+  async upsertGroup() {}
+  async deleteGroup() {}
+  async getBotSettings() { return null }
+  async setBotSettings() {}
+  async getAllSchedules() { return [] }
+  async getSchedule() { return null }
+  async upsertSchedule() {}
+  async deleteSchedule() {}
+  async getLogs() { return [] }
+  async addLog() {}
+  async isUpdateProcessed() { return false }
+  async markUpdateProcessed() {}
+  async claimScheduleRun() { return false }
+  async getAllUsers() { return [] }
+  async getUser() { return null }
+  async upsertUser() {}
+  async deleteUser() {}
+  async getAuditEntries() { return [] }
+  async createAuditEntry(e) { return e }
+}
+`
+            }
+            return null
+          }
+        }
+      ]
+    }
   },
 
   // Pinia setup
