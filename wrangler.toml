@@ -11,20 +11,24 @@ compatibility_flags = ["nodejs_compat"]
 # here only produces "Wrangler config `main` is overridden and will be ignored."
 
 # ---------------------------------------------------------------------------
-# Persistent storage. Workers have no filesystem, so the JSON "database"
-# (bot / groups / schedules / logs / moderation / chat) lives in Cloudflare KV.
+# Persistent storage:
+# - KV (DATA): Used for legacy/KV-based key lookups if needed.
+# - D1 (DB):   Primary relational database (SQLite-compatible on Workers).
+#              The server/db/d1-repository.ts implementation reads from this.
 #
-# Cloudflare Error 10041 occurs when the namespace ID below does not exist
-# in your Cloudflare account (62e1f389eb95ef1bfb83c245a0c820e8).
-#
-# HOW TO FIX:
-# 1. Cloudflare Dashboard -> Storage & Databases -> KV -> Create Namespace "DATA"
-#    (or run: npx wrangler kv namespace create DATA)
-# 2. Copy the resulting Namespace ID and paste it into `id` below:
+# HOW TO CREATE THE D1 DATABASE (one-time setup):
+#   1. Run: npx wrangler d1 create nn-bot-db
+#   2. Copy the `database_id` from the output and paste it below.
+#   3. Run: npx wrangler d1 execute nn-bot-db --remote --file=migrations/d1-schema.sql
 # ---------------------------------------------------------------------------
 [[kv_namespaces]]
 binding = "DATA"
 id = "68ffe308a386460087d1eaf3193b790d"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nn-bot-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
 # Runs the "broadcast" Nitro task every minute (replaces node-cron).
 [triggers]
