@@ -5,7 +5,7 @@
 
 const GCM_IV_LENGTH = 12 // 96 bits recommended for AES-GCM
 const CBC_IV_LENGTH = 16
-const PBKDF2_ITERATIONS = 210000
+const PBKDF2_ITERATIONS = 100000
 const PBKDF2_KEY_LENGTH = 32 // 256 bits
 
 export interface DecryptedTokenResult {
