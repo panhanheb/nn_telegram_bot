@@ -28,7 +28,7 @@ id = "68ffe308a386460087d1eaf3193b790d"
 [[d1_databases]]
 binding = "DB"
 database_name = "nn-bot-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "aa8b71eb-2560-47dd-acc7-03d81ac3f3e0"
 
 # Runs the "broadcast" Nitro task every minute (replaces node-cron).
 [triggers]
