@@ -4,8 +4,18 @@ import { D1StorageRepository } from './d1-repository'
 let repositoryInstance: IStorageRepository | null = null
 
 /**
+ * Registers a pre-constructed repository instance.
+ * Called by environment-specific Nitro plugins (e.g. the Node/Docker SQLite
+ * plugin) that run after startup and before any requests are served.
+ */
+export function registerRepository(repo: IStorageRepository): void {
+  repositoryInstance = repo
+}
+
+/**
  * Returns the active storage repository for the current runtime environment.
- * Automatically chooses Cloudflare D1 on Workers, or SQLite on Docker/Node.
+ * Automatically chooses Cloudflare D1 on Workers, or the pre-registered
+ * instance (SQLite) on Docker/Node.
  *
  * IMPORTANT: Never call this at module-load time (top-level). Cloudflare
  * Workers validate the script before injecting env bindings; any top-level
@@ -31,16 +41,15 @@ export function getStorageRepository(d1Binding?: any): IStorageRepository {
     return repositoryInstance
   }
 
-  // Docker / Node / Local SQLite fallback — only reachable outside Workers.
-  // Dynamic import avoids bundling better-sqlite3 into the Workers build.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { SqliteStorageRepository } = require('./sqlite-repository') as typeof import('./sqlite-repository')
-  const sqliteRepo = new SqliteStorageRepository()
-  sqliteRepo.initialize().catch((err: Error) => {
-    console.error('[DB] Failed to initialize SQLite database:', err)
-  })
-  repositoryInstance = sqliteRepo
-  return repositoryInstance
+  // If no binding and no pre-registered instance, we are in an unexpected
+  // state. Throw a clear error rather than silently failing.
+  // In Docker/Node, the sqlite-init plugin (server/plugins/db-sqlite-init.ts)
+  // should have called registerRepository() before any requests arrive.
+  throw new Error(
+    '[DB] No storage repository available. ' +
+    'On Cloudflare Workers: ensure a D1 database binding named "DB" is configured in wrangler.toml. ' +
+    'On Node/Docker: ensure NITRO_PRESET is not set to a Cloudflare preset.'
+  )
 }
 
 // NOTE: Do NOT add `export const repo = getStorageRepository()` here.

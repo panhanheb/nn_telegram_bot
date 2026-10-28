@@ -71,7 +71,26 @@ export default defineNuxtConfig({
     // Local dev keeps using the existing data/*.json files
     devStorage: {
       data: { driver: 'fs', base: './data' }
-    }
+    },
+
+    // Exclude Node-only packages from the Workers bundle.
+    // better-sqlite3 uses native bindings + fs APIs that don't exist in
+    // Cloudflare Workers (unenv). Bundling it triggers error 10021 during
+    // Workers script validation (fs.mkdirSync is not implemented).
+    // The Workers runtime always uses D1; SQLite is only used in Docker/Node.
+    externals: {
+      external: ['better-sqlite3', 'drizzle-orm/better-sqlite3']
+    },
+    rollupConfig: {
+      external: ['better-sqlite3', 'drizzle-orm/better-sqlite3']
+    },
+    // Completely exclude the SQLite-only server file from the Workers bundle.
+    // Without this, Rollup inlines sqlite-repository.ts into nitro.mjs and
+    // Cloudflare's script validator crashes on `fs.mkdirSync` (error 10021).
+    // The Workers runtime uses D1 (d1-repository.ts) exclusively.
+    ignore: [
+      'server/db/sqlite-repository'
+    ]
   },
 
   // Pinia setup
